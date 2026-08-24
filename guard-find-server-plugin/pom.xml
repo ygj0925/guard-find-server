@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.guardfind.server</groupId>
+        <artifactId>guard-find-server</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>guard-find-server-plugin</artifactId>
+    <packaging>pom</packaging>
+
+    <name>${project.artifactId}</name>
+    <description>插件模块（存放能力开放、租户等扩展模块）</description>
+
+    <modules>
+        <module>guard-find-server-plugin-open</module>
+        <module>guard-find-server-plugin-tenant</module>
+        <module>guard-find-server-plugin-schedule</module>
+        <module>guard-find-server-plugin-generator</module>
+    </modules>
+
+    <dependencies>
+        <!-- 公共模块 -->
+        <dependency>
+            <groupId>com.guardfind.server</groupId>
+            <artifactId>guard-find-server-common</artifactId>
+        </dependency>
+    </dependencies>
+</project>
