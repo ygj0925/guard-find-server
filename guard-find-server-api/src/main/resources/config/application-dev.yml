@@ -52,7 +52,8 @@ spring.data:
     # 密码（未设置密码时请注释掉）
     #password: ${REDIS_PWD:123456}
     # 数据库索引
-    database: ${REDIS_DB:0}
+    # 与 guard-find-backend 隔离，默认使用 Redis DB 1
+    database: ${REDIS_DB:1}
     # 连接超时时间
     timeout: 10s
     # 是否开启 SSL
@@ -262,11 +263,11 @@ snail-job:
     # 服务端地址
     host: ${SCHEDULE_HOST:127.0.0.1}
     # 服务端通讯端口
-    port: ${SCHEDULE_PORT:17888}
+    port: ${SCHEDULE_PORT:17890}
     # API 配置
     api:
       # URL
-      url: http://127.0.0.1:8001/snail-job
+      url: http://127.0.0.1:8003/snail-job
       # 用户名
       username: ${SCHEDULE_USERNAME:admin}
       # 密码
@@ -275,11 +276,11 @@ snail-job:
   openapi:
     # 服务端 Web 端口（默认：8080，如果你部署的服务端改动了端口，这里也需要对应改动）
     # guard-find-server-extension/guard-find-server-extension-schedule-server
-    port: 8001
+    port: 8003
   # 客户端地址（默认：自动推断。必须确保服务端可以访问到，在服务端无法调度客户端时需要手动配置）
   #host: 127.0.0.1
   # 客户端端口（默认：17889）
-  port: 17889
+  port: 17891
   # 命名空间
   namespace: ${SCHEDULE_NAMESPACE:764d604ec6fc45f68cd92514c40e9e1a}
   # 接入组名

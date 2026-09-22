@@ -1,5 +1,6 @@
 server:
-  port: 8001
+  # 与 guard-find-backend 的调度服务（8001）隔离
+  port: 8003
 
 --- ### 数据源配置
 spring.datasource:
@@ -22,7 +23,8 @@ spring.liquibase:
 --- ### Snail Job 服务端配置
 snail-job:
   # 服务端通讯端口（默认：17888）
-  server-port: 17888
+  # 与 guard-find-backend 的调度通信端口（17888）隔离
+  server-port: 17890
   # 合并日志默认保存天数
   merge-Log-days: 1
   # 合并日志默认的条数
