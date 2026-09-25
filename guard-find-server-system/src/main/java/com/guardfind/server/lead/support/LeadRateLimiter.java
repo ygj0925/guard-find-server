@@ -16,6 +16,7 @@
 
 package com.guardfind.server.lead.support;
 
+import com.guardfind.server.app.exception.AppBizException;
 import cn.hutool.core.util.StrUtil;
 import com.guardfind.server.lead.constant.LeadConstants;
 import lombok.extern.slf4j.Slf4j;
@@ -92,7 +93,7 @@ public class LeadRateLimiter {
         if (count <= limit) {
             return;
         }
-        throw new RateLimiterException(message.formatted(limit, this.waitDescription(key)));
+        throw new AppBizException(AppBizException.RATE_LIMITED, message.formatted(limit, this.waitDescription(key)));
     }
 
     /**

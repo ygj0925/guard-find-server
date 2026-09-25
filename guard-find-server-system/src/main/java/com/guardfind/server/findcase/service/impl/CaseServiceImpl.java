@@ -16,6 +16,7 @@
 
 package com.guardfind.server.findcase.service.impl;
 
+import com.guardfind.server.app.exception.AppBizException;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -408,7 +409,7 @@ public class CaseServiceImpl implements CaseService {
             .map(FindCaseDO::getCaseNo)
             .filter(StrUtil::isNotBlank)
             .collect(Collectors.joining("、"));
-        throw new BusinessException("存在疑似重复档案（编号：%s），请核对是否为同一人；确认无误后可重新提交并携带 forceSubmit=true，或联系志愿者走合并流程"
+        throw new AppBizException(AppBizException.DUPLICATE_CASE, "存在疑似重复档案（编号：%s），请核对是否为同一人；确认无误后可重新提交并携带 forceSubmit=true，或联系志愿者走合并流程"
             .formatted(caseNos));
     }
 
