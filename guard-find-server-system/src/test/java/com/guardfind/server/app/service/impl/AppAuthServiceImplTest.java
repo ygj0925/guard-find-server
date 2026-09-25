@@ -31,6 +31,7 @@ import com.guardfind.server.common.enums.DisEnableStatusEnum;
 import com.guardfind.server.system.model.resp.ClientResp;
 import com.guardfind.server.system.service.ClientService;
 import com.guardfind.server.system.service.SmsConfigService;
+import com.guardfind.server.support.ContainerlessTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -72,7 +73,7 @@ import static org.mockito.Mockito.when;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class AppAuthServiceImplTest {
+class AppAuthServiceImplTest extends ContainerlessTestBase {
 
     private static final String PHONE = "13800001234";
     private static final String SMS_CODE_KEY = "CAPTCHA:app:" + PHONE;
@@ -272,16 +273,22 @@ class AppAuthServiceImplTest {
 
     /**
      * 以 Map 模拟 Redis，避免依赖真实 Redis
+     *
+     * <p>
+     * 说明：静态打桩必须逐条写成独立语句（Mockito 只允许参数匹配器出现在 when/verify 内部），
+     * 且 {@code RedisUtils#delete} 返回 boolean，不可返回 Long。
+     * </p>
      */
     private void stubCache(MockedStatic<RedisUtils> redis, Map<String, Object> cache) {
-        redis.when(() -> RedisUtils.get(anyString())).thenAnswer(invocation -> cache.get(invocation.getArgument(0)));
+        redis.when(() -> RedisUtils.get(anyString()))
+            .thenAnswer(invocation -> cache.get(invocation.<String>getArgument(0)));
         redis.when(() -> RedisUtils.set(anyString(), any(), any(Duration.class))).thenAnswer(invocation -> {
             cache.put(invocation.getArgument(0), invocation.getArgument(1));
             return null;
         });
         redis.when(() -> RedisUtils.delete(anyString())).thenAnswer(invocation -> {
             cache.remove(invocation.<String>getArgument(0));
-            return 1L;
+            return true;
         });
         redis.when(() -> RedisUtils.getTimeToLive(anyString())).thenReturn(600000L);
     }

@@ -30,6 +30,7 @@ import com.guardfind.server.app.model.resp.AppDeactivateResp;
 import com.guardfind.server.app.model.resp.AppUserResp;
 import com.guardfind.server.common.enums.GenderEnum;
 import com.guardfind.server.notification.service.AppMessageService;
+import com.guardfind.server.support.ContainerlessTestBase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,7 +62,7 @@ import static org.mockito.Mockito.when;
  * @since 2026/9/24
  */
 @ExtendWith(MockitoExtension.class)
-class AppUserServiceImplTest {
+class AppUserServiceImplTest extends ContainerlessTestBase {
 
     private static final String PHONE = "13800001234";
     private static final Long USER_ID = 1789000000000000001L;
