@@ -133,6 +133,28 @@ public final class RegionMatcher {
         }
         String provinceCode = bestMatch(PROVINCES, target, 0);
         if (provinceCode == null) {
+            // 地址经常只写到市（如"石家庄市桥西区示例路1号"、源站详情页的"失踪地址"也不带省名）。
+            // 此前一律返回空，导致同一个人在候选库里裂成两条，正是去重要防的情况。
+            // 这里在全部市级名称中找"唯一命中"：命中多个则放弃（不猜），避免把不同省的同名区县合并。
+            String onlyCityCode = null;
+            int cityHits = 0;
+            for (Map.Entry<String, String> entry : CITIES.entrySet()) {
+                for (String variant : nameVariants(entry.getValue())) {
+                    if (target.contains(variant)) {
+                        cityHits++;
+                        onlyCityCode = entry.getKey();
+                        break;
+                    }
+                }
+            }
+            if (cityHits == 1 && onlyCityCode != null) {
+                String inferred = onlyCityCode.substring(0, 2) + "0000";
+                if (PROVINCES.containsKey(inferred)) {
+                    provinceCode = inferred;
+                }
+            }
+        }
+        if (provinceCode == null) {
             return new RegionHit(null, null, null);
         }
         String provincePrefix = provinceCode.substring(0, 2);

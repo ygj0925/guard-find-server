@@ -204,7 +204,10 @@ public class XunrenHtmlParser {
             Set<String> distinct = new LinkedHashSet<>();
             for (Element link : links) {
                 String href = StrUtil.trim(link.attr("href"));
-                if (StrUtil.isBlank(href) || !ReUtil.isMatch(DETAIL_ID_PATTERN, href)) {
+                // 注意：传入 baseUri 后 attr("href") 返回的是绝对化地址(如 https://host/xunren/view/43036)，
+                // 而 ReUtil.isMatch 是整串匹配，直接用它会把每个条目都判为不匹配、导致列表恒为空。
+                // 这里与 parseSourceId 保持同一套提取语义：能提出非空编号即为详情条目。
+                if (StrUtil.isBlank(ReUtil.get(DETAIL_ID_PATTERN, href, 1))) {
                     continue;
                 }
                 String absolute = this.toAbsolute(baseUrl, href);
