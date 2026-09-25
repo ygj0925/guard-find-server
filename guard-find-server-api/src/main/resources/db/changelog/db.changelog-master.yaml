@@ -2,7 +2,11 @@ databaseChangeLog:
   - include:
       file: db/changelog/mysql/main_table.sql
   - include:
+      file: db/changelog/mysql/guardfind_business_table.sql
+  - include:
       file: db/changelog/mysql/main_data.sql
+  - include:
+      file: db/changelog/mysql/guardfind_business_data.sql
   - include:
       file: db/changelog/mysql/plugin/plugin_open.sql
   - include:

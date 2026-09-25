@@ -228,6 +228,30 @@ continew-starter.tenant:
     - sys_sms_log # 短信日志表
     - sys_client # 客户端表
     - sys_app # 应用表
+    # 天下无拐业务表（C 端与采集域不参与租户隔离）
+    - gf_app_user # App 用户表
+    - gf_app_device # App 设备表
+    - gf_find_case # 寻人档案表
+    - gf_find_case_media # 寻人档案媒体表
+    - gf_find_case_alias # 寻人档案别名表
+    - gf_case_version # 寻人档案版本表
+    - gf_case_status_log # 寻人档案状态轨迹表
+    - gf_case_source_link # 寻人档案来源关联表
+    - gf_case_lead # 寻人线索表
+    - gf_lead_reply # 线索回复表
+    - gf_message # App 站内消息表
+    - gf_notification_preference # App 通知偏好表
+    - gf_report # 举报表
+    - gf_sensitive_word # 敏感词表
+    - gf_user_punishment # 用户处置记录表
+    - gf_favorite # 收藏表
+    - gf_search_history # 搜索历史表
+    - gf_user_track # 埋点事件表
+    - gf_collect_source # 采集源配置表
+    - gf_collect_raw # 采集原文快照表
+    - gf_collect_candidate # 采集候选表
+    - gf_collect_log # 采集批次日志表
+    - gf_collect_erase_log # 采集数据删除审计表
   # 忽略菜单 ID（租户不能使用的菜单）
   ignore-menus:
     - 1050 # 菜单管理

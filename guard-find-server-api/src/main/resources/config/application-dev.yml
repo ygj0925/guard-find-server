@@ -254,6 +254,8 @@ sa-token.extension:
     - /*/api-docs/**
     # 本地存储资源
     - /file/**
+    # C 端接口：由 AppSaTokenInterceptor 以独立登录域（loginType=app）自行完成认证与放行
+    - /app/**
 
 --- ### Snail Job 配置
 snail-job:

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<!-- 列表页样例：条目形态与真实站一致（/xunren/view/{id}），末尾附"当前区间/总数"与翻页条（数据全为虚构） -->
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>寻亲列表 第 1 页（合成样例）</title>
+</head>
+<body>
+<div class="head"><img src="/images/logo.gif" width="88" height="31" alt="站点标识"/></div>
+<div class="list">
+    <ul>
+        <li><a href="/xunren/view/detail-normal">张三合</a> <span>男 · 河北省石家庄市 · 2004-08-15</span></li>
+        <li><a href="/xunren/view/detail-shuffled-labels">张三合（重复条目）</a> <span>男 · 河北石家庄 · 2004年8月15日</span></li>
+        <li><a href="/xunren/view/detail-missing-date">王五合</a> <span>女 · 河南省南阳市 · 日期不详</span></li>
+        <li><a href="/xunren/view/detail-dirty-html">李四合</a> <span>女 · 四川省绵阳市 · 1998-12-03</span></li>
+        <li><a href="/xunren/view/404">页面不存在条目</a></li>
+        <li><a href="/xunren/view/empty">空白条目</a></li>
+    </ul>
+</div>
+<div class="page">
+    <a href="/xunren/category/6">首页</a>
+    <a href="/xunren/category/6?p-page=1">上一页</a>
+    <a href="/xunren/category/6?p-page=2">下一页</a>
+    <a href="/xunren/category/6?p-page=120">尾页</a>
+    <span>当前区间 1-20 / 总数 2380</span>
+</div>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<!--
+  合成样例页：脏 HTML —— 标签未闭合、表格错位、脚本干扰、&nbsp; 与全角空格混排、地址跨多行、全角数字生日、
+  身高以米表示、页面尾部混入图标与水印（数据全为虚构，仅用于验证"脏页面不抛异常、能取多少取多少、不吞并他条"）
+-->
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>李四合&nbsp;详情</title>
+    <style>.content{color:#333}</style>
+    <script>var broken = "<b>姓名</b>：不应被取到";</script>
+</head>
+<body>
+<div class="main">
+    <table>
+        <tr>
+            <td class="content">
+                <b>姓名</b>：李四合　
+                <b>类别</b>：&nbsp;&nbsp;失联
+                <b>编号</b>：detail-dirty-html
+                <b>性别</b>&nbsp;:&nbsp;女
+                <b>生日</b>：１９９８年７月２日
+                <b>失踪时身高</b>：1.62m
+                <b>失踪日期</b>：1998/12/03
+                <b>失踪地址</b>：四川省
+                绵阳市
+                涪城区样例街道 12 号
+                <b>特征描述</b>：说话结巴，左眉有旧疤（虚构）
+                <b>发生经过</b>：放学途中失联（完全虚构剧情）
+                <b>家庭背景及线索资料</b>：（虚构）
+    </table>
+    </td>
+    </tr>
+    </table>
+    <div class="foot">
+        <a href="/xunren/category/6?p-page=2">下一页</a> <img src="/images/icon_up.png" width="16" height="16"/> <img
+            src="/uploadimgs/2026/09/fix-90002.jpg" width="200" height="240"/>
+    </div>
+</div>
+</body>
+</html>

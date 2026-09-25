@@ -36,6 +36,10 @@
     <properties>
         <!-- 项目版本号 -->
         <revision>4.2.0-SNAPSHOT</revision>
+        <!-- HTML 解析（寻亲数据采集适配器使用） -->
+        <jsoup.version>1.18.3</jsoup.version>
+        <!-- 默认跳过单元测试（保持与上游一致）；执行新增单测：mvn test -Dtests.skip=false -->
+        <tests.skip>true</tests.skip>
     </properties>
 
     <!-- 全局依赖版本管理 -->
@@ -89,6 +93,13 @@
                 <artifactId>guard-find-server-plugin-generator</artifactId>
                 <version>${revision}</version>
             </dependency>
+
+            <!-- Jsoup（HTML 解析，寻亲数据采集适配器使用，纯 Java 实现） -->
+            <dependency>
+                <groupId>org.jsoup</groupId>
+                <artifactId>jsoup</artifactId>
+                <version>${jsoup.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -122,8 +133,8 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <!-- 跳过单元测试 -->
-                    <skip>true</skip>
+                    <!-- 跳过单元测试（默认保持上游行为；业务单测通过 -Dtests.skip=false 执行） -->
+                    <skip>${tests.skip}</skip>
                 </configuration>
             </plugin>
             <!-- 代码格式化插件 -->
