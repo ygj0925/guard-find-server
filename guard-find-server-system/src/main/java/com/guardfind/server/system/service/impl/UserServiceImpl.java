@@ -55,7 +55,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.guardfind.server.auth.service.OnlineUserService;
 import com.guardfind.server.common.base.service.BaseServiceImpl;
 import com.guardfind.server.common.constant.CacheConstants;
-import com.guardfind.server.common.context.UserContext;
 import com.guardfind.server.common.context.UserContextHolder;
 import com.guardfind.server.common.enums.DisEnableStatusEnum;
 import com.guardfind.server.common.enums.GenderEnum;
@@ -117,6 +116,8 @@ public class UserServiceImpl extends BaseServiceImpl<UserMapper, UserDO, UserRes
 
     @Resource
     private DeptService deptService;
+    @Resource
+    private UserPermissionService userPermissionService;
     @Value("${avatar.support-suffix}")
     private String[] avatarSupportSuffix;
     @Value("${avatar.path}")
@@ -712,12 +713,7 @@ public class UserServiceImpl extends BaseServiceImpl<UserMapper, UserDO, UserRes
      * @param id ID
      */
     private void updateContext(Long id) {
-        UserContext userContext = UserContextHolder.getContext(id);
-        if (userContext != null) {
-            userContext.setRoles(roleService.listByUserId(id));
-            userContext.setPermissions(roleService.listPermissionByUserId(id));
-            UserContextHolder.setContext(userContext);
-        }
+        userPermissionService.refreshUsers(List.of(id));
     }
 
     /**
