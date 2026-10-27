@@ -75,6 +75,11 @@ public class AppBizException extends RuntimeException {
     public static final String RATE_LIMITED = "4290";
 
     /**
+     * 目标资源不存在或不属于当前用户（用于个人数据越权防护，与不存在同一话术）
+     */
+    public static final String NOT_FOUND = "4004";
+
+    /**
      * 未登录或登录已过期（与框架 Sa-Token 异常处理器的取值保持一致）
      */
     public static final String UNAUTHORIZED = "401";
