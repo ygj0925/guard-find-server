@@ -289,3 +289,13 @@ snail-job:
   group: ${SCHEDULE_GROUP:guard-find-server}
   # 接入组 token
   token: ${SCHEDULE_TOKEN:SJ_Wyz3dmsdbDOkDujOTSSoBjGQP1BMsVnj}
+
+--- ### AI 对话配置(工具箱二期)
+# OpenAI 兼容协议;apiKey 留空 = 测试模式(返回占位回复,不调供应商),生产必须在环境变量注入
+guardfind:
+  ai:
+    api-base: ${AI_API_BASE:https://open.bigmodel.cn/api/paas/v4}
+    api-key: ${AI_API_KEY:}
+    model: ${AI_MODEL:glm-4-flash}
+    history-turns: 20
+    timeout-ms: 60000

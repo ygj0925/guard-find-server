@@ -593,3 +593,38 @@ CREATE TABLE IF NOT EXISTS `gf_ledger_record` (
     INDEX `idx_user_date`(`user_id`, `record_date`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账记录表';
+
+-- changeset guardfind:3
+CREATE TABLE IF NOT EXISTS `gf_ai_conversation` (
+    `id`            bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`       bigint(20)   NOT NULL                   COMMENT '所属用户 ID',
+    `title`         varchar(100) NOT NULL                   COMMENT '会话标题（默认取首条消息摘要）',
+    `model`         varchar(50)  DEFAULT NULL               COMMENT '对话模型标识（服务端配置的默认模型）',
+    `create_user`   bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`   datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`   bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`   datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`       bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_time`(`user_id`, `update_time`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 会话表';
+
+-- changeset guardfind:4
+CREATE TABLE IF NOT EXISTS `gf_ai_message` (
+    `id`              bigint(20) AUTO_INCREMENT             COMMENT 'ID',
+    `conversation_id` bigint(20) NOT NULL                   COMMENT '所属会话 ID',
+    `user_id`         bigint(20) NOT NULL                   COMMENT '所属用户 ID（冗余，便于按人清理）',
+    `role`            varchar(20) NOT NULL                  COMMENT '角色（user/assistant）',
+    `content`         text         NOT NULL                 COMMENT '消息内容',
+    `tokens`          int(11)      DEFAULT NULL             COMMENT '消耗 token 数（供应商返回时记录）',
+    `create_user`     bigint(20)   DEFAULT NULL             COMMENT '创建人',
+    `create_time`     datetime     NOT NULL                 COMMENT '创建时间',
+    `update_user`     bigint(20)   DEFAULT NULL             COMMENT '修改人',
+    `update_time`     datetime     DEFAULT NULL             COMMENT '修改时间',
+    `deleted`         bigint(20)   NOT NULL DEFAULT 0       COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_conversation`(`conversation_id`, `id`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 消息表';
