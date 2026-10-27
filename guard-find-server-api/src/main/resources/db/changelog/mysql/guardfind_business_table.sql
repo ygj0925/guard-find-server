@@ -574,3 +574,22 @@ CREATE TABLE IF NOT EXISTS `gf_collect_erase_log` (
     INDEX `idx_source_code`(`source_code`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采集数据删除审计表';
+
+-- changeset guardfind:2
+CREATE TABLE IF NOT EXISTS `gf_ledger_record` (
+    `id`            bigint(20)    AUTO_INCREMENT              COMMENT 'ID',
+    `user_id`       bigint(20)    NOT NULL                    COMMENT '所属用户 ID',
+    `type`          tinyint(4)    NOT NULL                    COMMENT '类型（1：支出；2：收入）',
+    `amount`        decimal(12, 2) NOT NULL                   COMMENT '金额（元，正数）',
+    `category`      varchar(20)   NOT NULL                    COMMENT '分类码（food/transport/shopping/housing/entertainment/medical/education/social/salary/investment/redpacket/other）',
+    `record_date`   date          NOT NULL                    COMMENT '记账日期',
+    `remark`        varchar(200)  DEFAULT NULL                COMMENT '备注',
+    `create_user`   bigint(20)    DEFAULT NULL                COMMENT '创建人',
+    `create_time`   datetime      NOT NULL                    COMMENT '创建时间',
+    `update_user`   bigint(20)    DEFAULT NULL                COMMENT '修改人',
+    `update_time`   datetime      DEFAULT NULL                COMMENT '修改时间',
+    `deleted`       bigint(20)    NOT NULL DEFAULT 0          COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_date`(`user_id`, `record_date`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账记录表';
