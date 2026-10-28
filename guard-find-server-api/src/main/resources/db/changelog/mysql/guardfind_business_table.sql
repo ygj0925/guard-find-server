@@ -662,3 +662,56 @@ CREATE TABLE IF NOT EXISTS `gf_tool_todo` (
     INDEX `idx_user_done`(`user_id`, `done`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='待办清单表';
+
+-- changeset guardfind:7
+CREATE TABLE IF NOT EXISTS `gf_tool_habit` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '所属用户 ID',
+    `title`        varchar(50)  NOT NULL                   COMMENT '习惯名称',
+    `remark`       varchar(200) DEFAULT NULL               COMMENT '备注',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='习惯打卡表';
+
+-- changeset guardfind:8
+CREATE TABLE IF NOT EXISTS `gf_tool_habit_log` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `habit_id`     bigint(20)   NOT NULL                   COMMENT '所属习惯 ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '所属用户 ID（冗余）',
+    `checkin_date` date         NOT NULL                   COMMENT '打卡日期',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_habit_date`(`habit_id`, `checkin_date`, `deleted`),
+    INDEX `idx_user_date`(`user_id`, `checkin_date`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='习惯打卡流水表';
+
+-- changeset guardfind:9
+CREATE TABLE IF NOT EXISTS `gf_tool_split` (
+    `id`            bigint(20)     AUTO_INCREMENT           COMMENT 'ID',
+    `user_id`       bigint(20)     NOT NULL                 COMMENT '所属用户 ID',
+    `title`         varchar(50)    DEFAULT NULL             COMMENT '分账事由（如 聚餐）',
+    `total_amount`  decimal(12, 2) NOT NULL                 COMMENT '总金额（元）',
+    `people_count`  int(11)        NOT NULL                 COMMENT '参与人数',
+    `split_date`    date           NOT NULL                 COMMENT '分账日期',
+    `remark`        varchar(200)   DEFAULT NULL             COMMENT '备注',
+    `written_back`  tinyint(4)     NOT NULL DEFAULT 0       COMMENT '是否已写回记账（0：否；1：是）',
+    `create_user`   bigint(20)     DEFAULT NULL             COMMENT '创建人',
+    `create_time`   datetime       NOT NULL                 COMMENT '创建时间',
+    `update_user`   bigint(20)     DEFAULT NULL             COMMENT '修改人',
+    `update_time`   datetime       DEFAULT NULL             COMMENT '修改时间',
+    `deleted`       bigint(20)     NOT NULL DEFAULT 0       COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_date`(`user_id`, `split_date`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AA 分账记录表';
