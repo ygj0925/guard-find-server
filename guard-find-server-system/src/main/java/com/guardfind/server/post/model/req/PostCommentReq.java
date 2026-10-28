@@ -41,4 +41,7 @@ public class PostCommentReq implements Serializable {
     @NotBlank(message = "评论内容不能为空")
     @Length(max = 500, message = "评论不能超过 {max} 个字符")
     private String content;
+
+    @Schema(description = "回复的评论 ID(楼中楼,可空)")
+    private Long replyToCommentId;
 }

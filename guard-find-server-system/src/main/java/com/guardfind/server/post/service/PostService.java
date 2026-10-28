@@ -39,14 +39,21 @@ public interface PostService {
     Long create(PostCreateReq req);
 
     /**
-     * 动态广场(仅已发布,按时间倒序,带头像昵称与 likedByMe)
+     * /**
+     * 动态广场(仅已发布;sort=latest 最新 / hot 热门)
      */
-    PageResp<PostResp> page(PageQuery pageQuery);
+    PageResp<PostResp> page(String sort, PageQuery pageQuery);
 
     /**
+     * /**
      * 我的动态
      */
     PageResp<PostResp> mine(PageQuery pageQuery);
+
+    /**
+     * 指定用户的动态(用户主页)
+     */
+    PageResp<PostResp> userPage(Long targetUserId, PageQuery pageQuery);
 
     /**
      * 动态详情

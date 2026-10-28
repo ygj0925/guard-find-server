@@ -53,4 +53,10 @@ public class PostCommentResp implements Serializable {
 
     @Schema(description = "评论时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "回复的评论 ID(可空)")
+    private Long replyToCommentId;
+
+    @Schema(description = "回复目标用户 ID(可空)")
+    private Long replyToUserId;
 }

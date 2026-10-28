@@ -62,6 +62,7 @@ class PostServiceImplTest extends ContainerlessTestBase {
     private PostLikeMapper likeMapper;
     private AppUserMapper appUserMapper;
     private SensitiveWordMatcher matcher;
+    private com.guardfind.server.notification.service.AppMessageService messageService;
     private PostServiceImpl service;
 
     @BeforeEach
@@ -72,7 +73,8 @@ class PostServiceImplTest extends ContainerlessTestBase {
         appUserMapper = mock(AppUserMapper.class);
         matcher = mock(SensitiveWordMatcher.class);
         when(matcher.match(anyString())).thenReturn(ContentCheckResult.pass());
-        service = new PostServiceImpl(postMapper, commentMapper, likeMapper, appUserMapper, matcher);
+        messageService = mock(com.guardfind.server.notification.service.AppMessageService.class);
+        service = new PostServiceImpl(postMapper, commentMapper, likeMapper, appUserMapper, matcher, messageService);
     }
 
     private static PostCreateReq req(String content) {
