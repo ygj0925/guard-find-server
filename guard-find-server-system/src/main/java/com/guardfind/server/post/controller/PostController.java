@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
@@ -72,8 +73,16 @@ public class PostController {
 
     @Operation(summary = "动态广场", description = "仅已发布,按时间倒序;带作者信息与 likedByMe")
     @GetMapping("/page")
-    public PageResp<PostResp> page(PageQuery pageQuery) {
-        return postService.page(pageQuery);
+    public PageResp<PostResp> page(@RequestParam(required = false, defaultValue = "latest") String sort,
+                                   PageQuery pageQuery) {
+        return postService.page(sort, pageQuery);
+    }
+
+    @Operation(summary = "指定用户的动态", description = "用户主页用;仅已发布")
+    @Parameter(name = "userId", description = "用户 ID", required = true)
+    @GetMapping("/user/{userId}")
+    public PageResp<PostResp> userPage(@PathVariable Long userId, PageQuery pageQuery) {
+        return postService.userPage(userId, pageQuery);
     }
 
     @Operation(summary = "我的动态")

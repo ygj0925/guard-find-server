@@ -46,7 +46,14 @@ public class PostCommentDO extends BaseDO {
     private Long userId;
 
     /**
+     * /**
      * 评论内容
      */
     private String content;
+
+    /** 回复的评论 ID(楼中楼,可空) */
+    private Long replyToCommentId;
+
+    /** 回复目标用户 ID(冗余,可空) */
+    private Long replyToUserId;
 }

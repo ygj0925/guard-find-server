@@ -68,6 +68,9 @@ public enum NotificationEventEnum {
      * 采集候选经审批正式发布
      */
     CASE_PUBLISHED("信息已发布", "AUDIT", false, false, "/case/%s"),
+    POST_LIKED("动态获赞", "SOCIAL", false, false, "/community/detail?id=%s"),
+    POST_COMMENTED("动态收到评论", "SOCIAL", false, false, "/community/detail?id=%s"),
+    SOCIAL_FOLLOWED("新粉丝", "SOCIAL", false, false, "/community/user?id=%s"),
 
     /**
      * 系统消息

@@ -71,6 +71,7 @@ public class PostServiceImpl implements PostService {
     private final PostLikeMapper likeMapper;
     private final AppUserMapper appUserMapper;
     private final SensitiveWordMatcher sensitiveWordMatcher;
+    private final com.guardfind.server.notification.service.AppMessageService messageService;
 
     @Override
     public Long create(PostCreateReq req) {
@@ -100,24 +101,32 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public PageResp<PostResp> page(PageQuery pageQuery) {
-        return pageBy(null, pageQuery);
+    public PageResp<PostResp> page(String sort, PageQuery pageQuery) {
+        return pageBy(null, sort, pageQuery);
     }
 
     @Override
     public PageResp<PostResp> mine(PageQuery pageQuery) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        return pageBy(userId, pageQuery);
+        return pageBy(userId, "latest", pageQuery);
     }
 
-    private PageResp<PostResp> pageBy(Long onlyUserId, PageQuery pageQuery) {
+    @Override
+    public PageResp<PostResp> userPage(Long targetUserId, PageQuery pageQuery) {
+        return pageBy(targetUserId, "latest", pageQuery);
+    }
+
+    private PageResp<PostResp> pageBy(Long onlyUserId, String sort, PageQuery pageQuery) {
         Long viewerId = AppUserContextHolder.getUserId();
+        boolean hot = "hot".equals(sort) && onlyUserId == null;
         Page<PostDO> page = postMapper.selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
             .<PostDO>lambdaQuery()
             .eq(PostDO::getStatus, 1)
             .eq(onlyUserId != null, PostDO::getUserId, onlyUserId)
-            .orderByDesc(PostDO::getCreateTime)
-            .orderByDesc(PostDO::getId));
+            .ge(hot, PostDO::getCreateTime, java.time.LocalDateTime.now().minusDays(7))
+            .last(hot ? "ORDER BY (like_count * 2 + comment_count * 3) DESC, id DESC" : "")
+            .orderByDesc(!hot, PostDO::getCreateTime)
+            .orderByDesc(!hot, PostDO::getId));
         List<PostResp> list = assemble(page.getRecords(), viewerId);
         PageResp<PostResp> resp = new PageResp<>();
         resp.setList(list);
@@ -149,6 +158,8 @@ public class PostServiceImpl implements PostService {
             resp.setId(comment.getId());
             resp.setUserId(comment.getUserId());
             resp.setContent(comment.getContent());
+            resp.setReplyToCommentId(comment.getReplyToCommentId());
+            resp.setReplyToUserId(comment.getReplyToUserId());
             resp.setCreateTime(comment.getCreateTime());
             AppUserDO user = users.get(comment.getUserId());
             if (user != null) {
