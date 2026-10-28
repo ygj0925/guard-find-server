@@ -885,3 +885,39 @@ CREATE TABLE IF NOT EXISTS `gf_social_follow` (
 -- changeset guardfind:20
 ALTER TABLE `gf_post_comment` ADD COLUMN `reply_to_comment_id` bigint(20) DEFAULT NULL COMMENT '回复的评论 ID（楼中楼，可空）';
 ALTER TABLE `gf_post_comment` ADD COLUMN `reply_to_user_id` bigint(20) DEFAULT NULL COMMENT '回复目标用户 ID（冗余，可空）';
+
+-- changeset guardfind:21
+CREATE TABLE IF NOT EXISTS `gf_tool_checkin` (
+    `id`            bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`       bigint(20)   NOT NULL                   COMMENT '发起人用户 ID',
+    `title`         varchar(50)  NOT NULL                   COMMENT '签到主题',
+    `location_name` varchar(50)  DEFAULT NULL               COMMENT '活动地点名(设置后签到者须填写一致)',
+    `start_time`    datetime     NOT NULL                   COMMENT '签到开始时间',
+    `end_time`      datetime     NOT NULL                   COMMENT '签到截止时间',
+    `secret`        varchar(32)  NOT NULL                   COMMENT '动态码种子(仅发起人可见)',
+    `create_user`   bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`   datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`   bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`   datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`       bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到活动表';
+
+-- changeset guardfind:22
+CREATE TABLE IF NOT EXISTS `gf_tool_checkin_record` (
+    `id`            bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `activity_id`   bigint(20)   NOT NULL                   COMMENT '所属签到活动 ID',
+    `user_id`       bigint(20)   NOT NULL                   COMMENT '签到人用户 ID',
+    `location_name` varchar(50)  DEFAULT NULL               COMMENT '签到人填写的所在地点',
+    `create_user`   bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`   datetime     NOT NULL                   COMMENT '签到时间',
+    `update_user`   bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`   datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`       bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_activity_user`(`activity_id`, `user_id`, `deleted`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到记录表';
