@@ -60,6 +60,9 @@ public class LedgerRecordReq implements Serializable {
     @NotNull(message = "记账日期不能为空")
     private LocalDate recordDate;
 
+    @Schema(description = "所属家庭组 ID(空=个人账本)", example = "1")
+    private Long groupId;
+
     @Schema(description = "备注")
     @Length(max = 200, message = "备注长度不能超过 {max} 个字符")
     private String remark;

@@ -88,8 +88,10 @@ public class LedgerController {
     @Operation(summary = "分页查询记账记录", description = "按记账日期倒序；month 为 yyyy-MM 时只查该月")
     @Parameter(name = "month", description = "月份（yyyy-MM，可空）")
     @GetMapping("/record/page")
-    public LedgerPageResp page(@RequestParam(required = false) String month, PageQuery pageQuery) {
-        return ledgerService.page(month, pageQuery);
+    public LedgerPageResp page(@RequestParam(required = false) String month,
+                               @RequestParam(required = false) Long groupId,
+                               PageQuery pageQuery) {
+        return ledgerService.page(month, groupId, pageQuery);
     }
 
     @Operation(summary = "周报/月报/年报汇总", description = "period=week|month|year；date 为区间内锚点日（缺省今天）；趋势空档补零")
@@ -97,7 +99,8 @@ public class LedgerController {
     @Parameter(name = "date", description = "锚点日（yyyy-MM-dd，可空）")
     @GetMapping("/summary")
     public LedgerSummaryResp summary(@RequestParam @Pattern(regexp = "^(week|month|year)$", message = "period 仅支持 week/month/year") String period,
-                                     @RequestParam(required = false) String date) {
-        return ledgerService.summary(period, date);
+                                     @RequestParam(required = false) String date,
+                                     @RequestParam(required = false) Long groupId) {
+        return ledgerService.summary(period, date, groupId);
     }
 }

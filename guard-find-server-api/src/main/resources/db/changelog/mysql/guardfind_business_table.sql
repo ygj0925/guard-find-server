@@ -715,3 +715,41 @@ CREATE TABLE IF NOT EXISTS `gf_tool_split` (
     INDEX `idx_user_date`(`user_id`, `split_date`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AA 分账记录表';
+
+-- changeset guardfind:10
+CREATE TABLE IF NOT EXISTS `gf_ledger_group` (
+    `id`             bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `name`           varchar(50)  NOT NULL                   COMMENT '组名（如 我们的家）',
+    `owner_user_id`  bigint(20)   NOT NULL                   COMMENT '组长用户 ID',
+    `invite_code`    varchar(8)   NOT NULL                   COMMENT '邀请码（6 位大写字母数字）',
+    `create_user`    bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`    datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`    bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`    datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`        bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_invite_code`(`invite_code`, `deleted`),
+    INDEX `idx_owner`(`owner_user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账家庭组表';
+
+-- changeset guardfind:11
+CREATE TABLE IF NOT EXISTS `gf_ledger_group_member` (
+    `id`           bigint(20)   AUTO_INCREMENT               COMMENT 'ID',
+    `group_id`     bigint(20)   NOT NULL                     COMMENT '所属组 ID',
+    `user_id`      bigint(20)   NOT NULL                     COMMENT '成员用户 ID',
+    `role`         tinyint(4)   NOT NULL DEFAULT 2           COMMENT '角色（1：组长；2：成员）',
+    `create_user`  bigint(20)   DEFAULT NULL                 COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                     COMMENT '加入时间',
+    `update_user`  bigint(20)   DEFAULT NULL                 COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL                 COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0           COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_group_user`(`group_id`, `user_id`, `deleted`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账组成员表';
+
+-- changeset guardfind:12
+ALTER TABLE `gf_ledger_record` ADD COLUMN `group_id` bigint(20) DEFAULT NULL COMMENT '所属家庭组（空=个人账本）';
+ALTER TABLE `gf_ledger_record` ADD INDEX `idx_group_date`(`group_id`, `record_date`);

@@ -48,6 +48,11 @@ public class LedgerRecordDO extends BaseDO {
     private Long userId;
 
     /**
+     * 所属家庭组(空=个人账本)
+     */
+    private Long groupId;
+
+    /**
      * 类型（1：支出；2：收入）
      */
     private Integer type;

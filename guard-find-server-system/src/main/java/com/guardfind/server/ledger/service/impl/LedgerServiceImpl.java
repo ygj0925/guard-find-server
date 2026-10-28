@@ -58,6 +58,7 @@ import java.util.List;
 public class LedgerServiceImpl implements LedgerService {
 
     private final LedgerRecordMapper ledgerRecordMapper;
+    private final com.guardfind.server.ledger.service.LedgerGroupService ledgerGroupService;
 
     @Override
     public Long create(LedgerRecordReq req) {
@@ -97,10 +98,15 @@ public class LedgerServiceImpl implements LedgerService {
     }
 
     @Override
-    public LedgerPageResp page(String month, PageQuery pageQuery) {
+    public LedgerPageResp page(String month, Long groupId, PageQuery pageQuery) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        LambdaQueryWrapper<LedgerRecordDO> wrapper = Wrappers.<LedgerRecordDO>lambdaQuery()
-            .eq(LedgerRecordDO::getUserId, userId);
+        LambdaQueryWrapper<LedgerRecordDO> wrapper = Wrappers.<LedgerRecordDO>lambdaQuery();
+        if (groupId != null) {
+            ledgerGroupService.requireMembership(groupId);
+            wrapper.eq(LedgerRecordDO::getGroupId, groupId);
+        } else {
+            wrapper.eq(LedgerRecordDO::getUserId, userId).isNull(LedgerRecordDO::getGroupId);
+        }
         if (StrUtil.isNotBlank(month)) {
             YearMonth parsed = parseMonth(month);
             wrapper.ge(LedgerRecordDO::getRecordDate, parsed.atDay(1))
@@ -114,11 +120,16 @@ public class LedgerServiceImpl implements LedgerService {
     }
 
     @Override
-    public LedgerSummaryResp summary(String period, String date) {
+    public LedgerSummaryResp summary(String period, String date, Long groupId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerSummaryCalculator.PeriodRange range = PeriodParser.parse(period, date);
+        if (groupId != null) {
+            ledgerGroupService.requireMembership(groupId);
+        }
         List<LedgerRecordDO> records = ledgerRecordMapper.selectList(Wrappers.<LedgerRecordDO>lambdaQuery()
-            .eq(LedgerRecordDO::getUserId, userId)
+            .eq(groupId != null, LedgerRecordDO::getGroupId, groupId)
+            .eq(groupId == null, LedgerRecordDO::getUserId, userId)
+            .isNull(groupId == null, LedgerRecordDO::getGroupId)
             .ge(LedgerRecordDO::getRecordDate, range.start())
             .le(LedgerRecordDO::getRecordDate, range.end()));
         return LedgerSummaryCalculator.calculate(records, range);

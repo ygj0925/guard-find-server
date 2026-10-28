@@ -67,7 +67,7 @@ public class AiInsightServiceImpl implements AiInsightService {
         LocalDate anchor = parseDate(date);
         String periodLabel = anchor.with(java.time.DayOfWeek.MONDAY).format(ISO) + " 那一周";
         String ledgerFacts = AiStatsTextBuilder.ledgerFacts(ledgerService.summary("week", anchor
-            .format(ISO)), periodLabel);
+            .format(ISO), null), periodLabel);
         int[] todos = todoStats();
         String[] habits = habitStats();
         String facts = ledgerFacts + "\n" + AiStatsTextBuilder.lifeFacts(todos[0], todos[1], Integer
@@ -102,7 +102,7 @@ public class AiInsightServiceImpl implements AiInsightService {
         String normalized = "week".equals(period) || "month".equals(period) ? period : "month";
         LocalDate anchor = parseDate(date);
         String periodLabel = "week".equals(normalized) ? "本周" : "本月";
-        LedgerSummaryResp summary = ledgerService.summary(normalized, anchor.format(ISO));
+        LedgerSummaryResp summary = ledgerService.summary(normalized, anchor.format(ISO), null);
         String facts = AiStatsTextBuilder.ledgerFacts(summary, periodLabel);
         return generate("你是记账分析师。根据下面的真实数据写 100 字以内点评:" + "点出最大的开销方向,给一条具体的省钱建议。数字照抄,不要编造。\n\n" + facts, facts);
     }
