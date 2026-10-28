@@ -753,3 +753,61 @@ CREATE TABLE IF NOT EXISTS `gf_ledger_group_member` (
 -- changeset guardfind:12
 ALTER TABLE `gf_ledger_record` ADD COLUMN `group_id` bigint(20) DEFAULT NULL COMMENT '所属家庭组（空=个人账本）';
 ALTER TABLE `gf_ledger_record` ADD INDEX `idx_group_date`(`group_id`, `record_date`);
+
+-- changeset guardfind:13
+CREATE TABLE IF NOT EXISTS `gf_tool_task` (
+    `id`               bigint(20)   AUTO_INCREMENT            COMMENT 'ID',
+    `group_id`         bigint(20)   NOT NULL                  COMMENT '所属家庭组 ID',
+    `creator_user_id`  bigint(20)   NOT NULL                  COMMENT '创建人用户 ID',
+    `assignee_user_id` bigint(20)   NOT NULL                  COMMENT '负责人用户 ID(组成员)',
+    `title`            varchar(100) NOT NULL                  COMMENT '任务标题',
+    `detail`           varchar(500) DEFAULT NULL              COMMENT '详情',
+    `due_date`         date         DEFAULT NULL              COMMENT '截止日期',
+    `priority`         tinyint(4)   NOT NULL DEFAULT 2        COMMENT '优先级（1：高；2：中；3：低）',
+    `status`           tinyint(4)   NOT NULL DEFAULT 1        COMMENT '状态（1：待办；2：进行中；3：已完成）',
+    `create_user`      bigint(20)   DEFAULT NULL              COMMENT '创建人',
+    `create_time`      datetime     NOT NULL                  COMMENT '创建时间',
+    `update_user`      bigint(20)   DEFAULT NULL              COMMENT '修改人',
+    `update_time`      datetime     DEFAULT NULL              COMMENT '修改时间',
+    `deleted`          bigint(20)   NOT NULL DEFAULT 0        COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_group_status`(`group_id`, `status`),
+    INDEX `idx_assignee`(`assignee_user_id`, `status`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='家庭组任务分派表';
+
+-- changeset guardfind:14
+CREATE TABLE IF NOT EXISTS `gf_tool_goal` (
+    `id`           bigint(20)   AUTO_INCREMENT               COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                     COMMENT '所属用户 ID',
+    `title`        varchar(100) NOT NULL                     COMMENT '目标(O)描述',
+    `period`       varchar(10)  NOT NULL                     COMMENT '周期（2026Q4 / 2026）',
+    `create_user`  bigint(20)   DEFAULT NULL                 COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                     COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL                 COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL                 COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0           COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_period`(`user_id`, `period`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='目标(O)表';
+
+-- changeset guardfind:15
+CREATE TABLE IF NOT EXISTS `gf_tool_key_result` (
+    `id`            bigint(20)     AUTO_INCREMENT           COMMENT 'ID',
+    `goal_id`       bigint(20)     NOT NULL                 COMMENT '所属目标 ID',
+    `user_id`       bigint(20)     NOT NULL                 COMMENT '所属用户 ID（冗余）',
+    `title`         varchar(100)   NOT NULL                 COMMENT '关键结果(KR)描述',
+    `target_value`  decimal(12, 2) NOT NULL                 COMMENT '目标值',
+    `current_value` decimal(12, 2) NOT NULL DEFAULT 0       COMMENT '当前值',
+    `unit`          varchar(10)    DEFAULT NULL             COMMENT '单位（本/公里/元…）',
+    `status`        tinyint(4)     NOT NULL DEFAULT 1       COMMENT '状态（1：进行中；2：已完成）',
+    `create_user`   bigint(20)     DEFAULT NULL             COMMENT '创建人',
+    `create_time`   datetime       NOT NULL                 COMMENT '创建时间',
+    `update_user`   bigint(20)     DEFAULT NULL             COMMENT '修改人',
+    `update_time`   datetime       DEFAULT NULL             COMMENT '修改时间',
+    `deleted`       bigint(20)     NOT NULL DEFAULT 0       COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_goal`(`goal_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='关键结果(KR)表';

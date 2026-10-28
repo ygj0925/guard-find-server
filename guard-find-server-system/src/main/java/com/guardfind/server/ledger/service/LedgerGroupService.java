@@ -78,4 +78,9 @@ public interface LedgerGroupService {
      * @return 组 DO
      */
     LedgerGroupDO requireMembership(Long groupId);
+
+    /**
+     * 校验指定用户是组成员(任务分派给他人前的负责人合法性检查);非成员抛 NOT_FOUND
+     */
+    void requireUserInGroup(Long groupId, Long userId);
 }

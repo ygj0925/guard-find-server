@@ -215,6 +215,11 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
         return requireMembership(groupId, userId);
     }
 
+    @Override
+    public void requireUserInGroup(Long groupId, Long userId) {
+        requireMembership(groupId, userId);
+    }
+
     private LedgerGroupDO requireMembership(Long groupId, Long userId) {
         LedgerGroupDO group = groupId == null ? null : groupMapper.selectById(groupId);
         if (group == null) {
