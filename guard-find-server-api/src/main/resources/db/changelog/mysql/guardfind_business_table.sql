@@ -811,3 +811,57 @@ CREATE TABLE IF NOT EXISTS `gf_tool_key_result` (
     INDEX `idx_goal`(`goal_id`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='关键结果(KR)表';
+
+-- changeset guardfind:16
+CREATE TABLE IF NOT EXISTS `gf_post` (
+    `id`            bigint(20)    AUTO_INCREMENT            COMMENT 'ID',
+    `user_id`       bigint(20)    NOT NULL                  COMMENT '发布者用户 ID',
+    `content`       varchar(1000) NOT NULL                  COMMENT '正文',
+    `images`        varchar(2000) DEFAULT NULL              COMMENT '图片 URL JSON 数组（最多 9 张）',
+    `location_name` varchar(50)   DEFAULT NULL              COMMENT '位置名称（用户手选/手输，可空）',
+    `longitude`     decimal(10, 6) DEFAULT NULL             COMMENT '经度（可选）',
+    `latitude`      decimal(10, 6) DEFAULT NULL             COMMENT '纬度（可选）',
+    `like_count`    int(11)       NOT NULL DEFAULT 0        COMMENT '点赞数',
+    `comment_count` int(11)       NOT NULL DEFAULT 0        COMMENT '评论数',
+    `status`        tinyint(4)    NOT NULL DEFAULT 1        COMMENT '状态（0：待审；1：已发布；2：已拒绝）',
+    `create_user`   bigint(20)    DEFAULT NULL              COMMENT '创建人',
+    `create_time`   datetime      NOT NULL                  COMMENT '创建时间',
+    `update_user`   bigint(20)    DEFAULT NULL              COMMENT '修改人',
+    `update_time`   datetime      DEFAULT NULL              COMMENT '修改时间',
+    `deleted`       bigint(20)    NOT NULL DEFAULT 0        COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_time`(`user_id`, `create_time`),
+    INDEX `idx_status_time`(`status`, `create_time`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='社区动态表';
+
+-- changeset guardfind:17
+CREATE TABLE IF NOT EXISTS `gf_post_comment` (
+    `id`           bigint(20)   AUTO_INCREMENT               COMMENT 'ID',
+    `post_id`      bigint(20)   NOT NULL                     COMMENT '所属动态 ID',
+    `user_id`      bigint(20)   NOT NULL                     COMMENT '评论人用户 ID',
+    `content`      varchar(500) NOT NULL                     COMMENT '评论内容',
+    `create_user`  bigint(20)   DEFAULT NULL                 COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                     COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL                 COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL                 COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0           COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_post`(`post_id`, `id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动态评论表';
+
+-- changeset guardfind:18
+CREATE TABLE IF NOT EXISTS `gf_post_like` (
+    `id`          bigint(20)  AUTO_INCREMENT                COMMENT 'ID',
+    `post_id`     bigint(20)  NOT NULL                      COMMENT '所属动态 ID',
+    `user_id`     bigint(20)  NOT NULL                      COMMENT '点赞人用户 ID',
+    `create_user` bigint(20)  DEFAULT NULL                  COMMENT '创建人',
+    `create_time` datetime    NOT NULL                      COMMENT '创建时间',
+    `update_user` bigint(20)  DEFAULT NULL                  COMMENT '修改人',
+    `update_time` datetime    DEFAULT NULL                  COMMENT '修改时间',
+    `deleted`     bigint(20)  NOT NULL DEFAULT 0            COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_post_user`(`post_id`, `user_id`, `deleted`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='动态点赞表';
