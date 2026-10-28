@@ -50,12 +50,14 @@ import static org.mockito.Mockito.when;
 class LedgerServiceImplTest extends ContainerlessTestBase {
 
     private LedgerRecordMapper mapper;
+    private com.guardfind.server.ledger.service.LedgerGroupService groupService;
     private LedgerServiceImpl service;
 
     @BeforeEach
     void setUp() {
         mapper = org.mockito.Mockito.mock(LedgerRecordMapper.class);
-        service = new LedgerServiceImpl(mapper);
+        groupService = org.mockito.Mockito.mock(com.guardfind.server.ledger.service.LedgerGroupService.class);
+        service = new LedgerServiceImpl(mapper, groupService);
     }
 
     private static LedgerRecordReq req(int type, String amount, String category) {

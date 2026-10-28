@@ -53,7 +53,7 @@ public interface LedgerService {
      * @param month     月份（yyyy-MM，可空，空则查全部）
      * @param pageQuery 分页参数
      */
-    LedgerPageResp page(String month, PageQuery pageQuery);
+    LedgerPageResp page(String month, Long groupId, PageQuery pageQuery);
 
     /**
      * 周报/月报/年报汇总
@@ -61,5 +61,5 @@ public interface LedgerService {
      * @param period week | month | year
      * @param date   区间内锚点日（yyyy-MM-dd，可空，默认今天）
      */
-    LedgerSummaryResp summary(String period, String date);
+    LedgerSummaryResp summary(String period, String date, Long groupId);
 }
