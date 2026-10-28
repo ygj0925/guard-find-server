@@ -628,3 +628,37 @@ CREATE TABLE IF NOT EXISTS `gf_ai_message` (
     INDEX `idx_user`(`user_id`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 消息表';
+
+-- changeset guardfind:5
+CREATE TABLE IF NOT EXISTS `gf_tool_countdown` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '所属用户 ID',
+    `title`        varchar(50)  NOT NULL                   COMMENT '事项名称',
+    `target_date`  date         NOT NULL                   COMMENT '目标日期',
+    `remark`       varchar(200) DEFAULT NULL               COMMENT '备注',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_date`(`user_id`, `target_date`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='倒数日表';
+
+-- changeset guardfind:6
+CREATE TABLE IF NOT EXISTS `gf_tool_todo` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '所属用户 ID',
+    `title`        varchar(100) NOT NULL                   COMMENT '待办内容',
+    `done`         tinyint(4)   NOT NULL DEFAULT 0         COMMENT '是否完成（0：否；1：是）',
+    `due_date`     date         DEFAULT NULL               COMMENT '截止日期（可空）',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_done`(`user_id`, `done`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='待办清单表';
