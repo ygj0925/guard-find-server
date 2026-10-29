@@ -993,3 +993,33 @@ CREATE TABLE IF NOT EXISTS `gf_tool_report_comment` (
     INDEX `idx_entry`(`entry_id`, `id`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月报评论表';
+
+-- changeset guardfind:27
+ALTER TABLE `gf_tool_key_result` ADD COLUMN `weight` tinyint(4) NOT NULL DEFAULT 1 COMMENT '权重（1-10，目标进度=ΣKR进度×权重/Σ权重）';
+ALTER TABLE `gf_tool_key_result` ADD COLUMN `confidence` tinyint(4) NOT NULL DEFAULT 5 COMMENT '信心指数（1-10，更新进度时联动调整）';
+
+-- changeset guardfind:28
+CREATE TABLE IF NOT EXISTS `gf_tool_kr_log` (
+    `id`          bigint(20)   AUTO_INCREMENT            COMMENT 'ID',
+    `kr_id`       bigint(20)   NOT NULL                  COMMENT '所属 KR ID',
+    `user_id`     bigint(20)   NOT NULL                  COMMENT '操作人用户 ID',
+    `from_value`  decimal(12, 2) DEFAULT NULL            COMMENT '更新前值',
+    `to_value`    decimal(12, 2) NOT NULL                COMMENT '更新后值',
+    `confidence`  tinyint(4)   DEFAULT NULL              COMMENT '更新时的信心指数',
+    `note`        varchar(200) DEFAULT NULL              COMMENT '更新说明',
+    `create_user` bigint(20)   DEFAULT NULL              COMMENT '创建人',
+    `create_time` datetime     NOT NULL                  COMMENT '创建时间',
+    `update_user` bigint(20)   DEFAULT NULL              COMMENT '修改人',
+    `update_time` datetime     DEFAULT NULL              COMMENT '修改时间',
+    `deleted`     bigint(20)   NOT NULL DEFAULT 0        COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_kr`(`kr_id`, `id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='KR 进度更新时间线表';
+
+-- changeset guardfind:29
+ALTER TABLE `gf_tool_goal` ADD COLUMN `score` decimal(3, 2) DEFAULT NULL COMMENT '期末复盘评分（0-1）';
+
+-- changeset guardfind:30
+ALTER TABLE `gf_tool_task` ADD COLUMN `kr_id` bigint(20) DEFAULT NULL COMMENT '关联的 KR ID（可空；用于任务进度自动推进 KR）';
+ALTER TABLE `gf_tool_task` ADD INDEX `idx_kr`(`kr_id`);

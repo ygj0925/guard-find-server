@@ -38,8 +38,10 @@ import com.guardfind.server.tool.model.req.ToolGoalReq;
 import com.guardfind.server.tool.model.req.ToolKeyResultReq;
 import com.guardfind.server.tool.model.req.ToolKrProgressReq;
 import com.guardfind.server.tool.model.req.ToolTaskReq;
+import com.guardfind.server.tool.model.req.ToolScoreReq;
 import com.guardfind.server.tool.model.req.ToolTaskStatusReq;
 import com.guardfind.server.tool.model.resp.ToolGoalResp;
+import com.guardfind.server.tool.model.resp.ToolKrLogResp;
 import com.guardfind.server.tool.model.resp.ToolTaskResp;
 import com.guardfind.server.tool.service.ToolGoalService;
 import com.guardfind.server.tool.service.ToolTaskService;
@@ -122,6 +124,45 @@ public class ToolTaskGoalController {
     @PutMapping("/goal/{id}")
     public void updateGoal(@PathVariable Long id, @RequestBody @Valid ToolGoalReq req) {
         goalService.update(id, req);
+    }
+
+    @Operation(summary = "设置复盘评分", description = "0-1")
+    @Parameter(name = "id", description = "目标 ID", required = true)
+    @PutMapping("/goal/{id}/score")
+    public void setScore(@PathVariable Long id, @RequestBody @Valid ToolScoreReq req) {
+        goalService.setScore(id, req.getScore());
+    }
+
+    @Operation(summary = "修改 KR 元信息", description = "标题/目标值/单位/权重/信心指数")
+    @Parameter(name = "krId", description = "KR ID", required = true)
+    @PutMapping("/goal/kr/{krId}")
+    public void updateKr(@PathVariable Long krId,
+                         @RequestBody @Valid ToolKeyResultReq req,
+                         @RequestParam(required = false) Integer confidence) {
+        goalService.updateKr(krId, req, confidence);
+    }
+
+    @Operation(summary = "KR 时间线", description = "每次进度更新的留痕,倒序")
+    @Parameter(name = "krId", description = "KR ID", required = true)
+    @GetMapping("/goal/kr/{krId}/logs")
+    public List<ToolKrLogResp> krLogs(@PathVariable Long krId) {
+        return goalService.krLogs(krId);
+    }
+
+    @Operation(summary = "关联任务到 KR", description = "仅任务创建人或负责人可关联")
+    @Parameter(name = "krId", description = "KR ID", required = true)
+    @Parameter(name = "taskId", description = "任务 ID", required = true)
+    @PostMapping("/goal/kr/{krId}/tasks/{taskId}")
+    public void linkTask(@PathVariable Long krId, @PathVariable Long taskId) {
+        goalService.linkTask(krId, taskId);
+    }
+
+    @Operation(summary = "取消任务关联")
+    @Parameter(name = "krId", description = "KR ID", required = true)
+    @Parameter(name = "taskId", description = "任务 ID", required = true)
+    @DeleteMapping("/goal/kr/{krId}/tasks/{taskId}")
+    public void unlinkTask(@PathVariable Long krId, @PathVariable Long taskId) {
+        goalService.unlinkTask(krId, taskId);
     }
 
     @Operation(summary = "删除目标", description = "级联删除 KR")

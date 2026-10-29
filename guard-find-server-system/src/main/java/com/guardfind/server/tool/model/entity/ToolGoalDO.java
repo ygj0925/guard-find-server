@@ -21,6 +21,7 @@ import com.guardfind.server.common.base.model.entity.BaseDO;
 import lombok.Data;
 
 import java.io.Serial;
+import java.math.BigDecimal;
 
 /**
  * 目标(O)实体
@@ -49,4 +50,9 @@ public class ToolGoalDO extends BaseDO {
      * 周期（2026Q4 / 2026）
      */
     private String period;
+
+    /**
+     * 期末复盘评分（0-1，可空）
+     */
+    private BigDecimal score;
 }

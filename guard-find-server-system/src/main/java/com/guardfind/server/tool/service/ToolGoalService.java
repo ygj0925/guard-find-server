@@ -19,9 +19,11 @@ package com.guardfind.server.tool.service;
 import com.guardfind.server.tool.model.req.ToolGoalReq;
 import com.guardfind.server.tool.model.req.ToolKeyResultReq;
 import com.guardfind.server.tool.model.req.ToolKrProgressReq;
+import com.guardfind.server.tool.model.resp.ToolKrLogResp;
 import com.guardfind.server.tool.model.resp.ToolGoalResp;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 /**
  * 目标 OKR 业务接口(C 端,个人维度)
@@ -72,4 +74,29 @@ public interface ToolGoalService {
      * 删除 KR
      */
     void deleteKr(Long krId);
+
+    /**
+     * 修改 KR 元信息(标题/目标值/单位/权重/信心指数)
+     */
+    void updateKr(Long krId, ToolKeyResultReq req, Integer confidence);
+
+    /**
+     * KR 进度更新时间线(倒序)
+     */
+    List<ToolKrLogResp> krLogs(Long krId);
+
+    /**
+     * 关联任务到 KR
+     */
+    void linkTask(Long krId, Long taskId);
+
+    /**
+     * 取消任务与 KR 的关联
+     */
+    void unlinkTask(Long krId, Long taskId);
+
+    /**
+     * 设置期末复盘评分(0-1)
+     */
+    void setScore(Long id, BigDecimal score);
 }

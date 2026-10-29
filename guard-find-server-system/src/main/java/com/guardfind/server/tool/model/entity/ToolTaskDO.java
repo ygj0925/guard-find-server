@@ -75,4 +75,9 @@ public class ToolTaskDO extends BaseDO {
      * 状态（1：待办；2：进行中；3：已完成）
      */
     private Integer status;
+
+    /**
+     * 关联的 KR ID（可空；用于任务进度自动推进 KR）
+     */
+    private Long krId;
 }
