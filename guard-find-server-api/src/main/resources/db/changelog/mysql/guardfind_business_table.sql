@@ -1043,3 +1043,46 @@ CREATE TABLE IF NOT EXISTS `gf_app_user_binding` (
     INDEX `idx_user`(`user_id`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='三方登录绑定表';
+
+-- changeset guardfind:32
+CREATE TABLE IF NOT EXISTS `gf_pet` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '主人用户 ID',
+    `name`         varchar(30)  NOT NULL                   COMMENT '宠物名',
+    `species`      varchar(20)  NOT NULL DEFAULT 'cat'     COMMENT '物种（cat/dog/other）',
+    `breed`        varchar(50)  DEFAULT NULL               COMMENT '品种',
+    `gender`       tinyint(4)   DEFAULT NULL               COMMENT '性别（1：公；2：母；NULL：未知）',
+    `birthday`     date         DEFAULT NULL               COMMENT '生日',
+    `avatar`       varchar(500) DEFAULT NULL               COMMENT '头像 URL',
+    `weight_kg`    decimal(6,2) DEFAULT NULL               COMMENT '当前体重(kg)',
+    `notes`        varchar(500) DEFAULT NULL               COMMENT '备注',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宠物档案表';
+
+-- changeset guardfind:33
+CREATE TABLE IF NOT EXISTS `gf_pet_log` (
+    `id`          bigint(20)    AUTO_INCREMENT             COMMENT 'ID',
+    `pet_id`      bigint(20)    NOT NULL                   COMMENT '所属宠物 ID',
+    `user_id`     bigint(20)    NOT NULL                   COMMENT '主人用户 ID',
+    `log_type`    varchar(20)   NOT NULL                   COMMENT '记录类型（weight/vaccine/medical/milestone/daily）',
+    `content`     varchar(1000) NOT NULL                   COMMENT '记录内容',
+    `value`       decimal(8,2)  DEFAULT NULL               COMMENT '数值（体重 kg / 身高 cm 等）',
+    `unit`        varchar(10)   DEFAULT NULL               COMMENT '单位',
+    `log_date`    date          NOT NULL                   COMMENT '记录日期',
+    `create_user` bigint(20)    DEFAULT NULL               COMMENT '创建人',
+    `create_time` datetime      NOT NULL                   COMMENT '创建时间',
+    `update_user` bigint(20)    DEFAULT NULL               COMMENT '修改人',
+    `update_time` datetime      DEFAULT NULL               COMMENT '修改时间',
+    `deleted`     bigint(20)    NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_pet_date`(`pet_id`, `log_date`),
+    INDEX `idx_pet_type`(`pet_id`, `log_type`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宠物成长日志表';
