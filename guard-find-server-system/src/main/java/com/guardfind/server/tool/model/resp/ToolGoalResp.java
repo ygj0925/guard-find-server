@@ -46,8 +46,14 @@ public class ToolGoalResp implements Serializable {
     @Schema(description = "周期")
     private String period;
 
+    @Schema(description = "期末复盘评分(0-1,可空)")
+    private BigDecimal score;
+
     @Schema(description = "目标整体进度(0-1,各 KR 均值)")
     private BigDecimal progress;
+
+    @Schema(description = "整体状态(onTrack/atRisk/behind/done)")
+    private String goalStatus;
 
     @Schema(description = "关键结果列表")
     private List<KeyResult> keyResults;
@@ -79,6 +85,15 @@ public class ToolGoalResp implements Serializable {
 
         @Schema(description = "状态(1 进行中 / 2 已完成)")
         private Integer status;
+
+        @Schema(description = "权重(1-10)")
+        private Integer weight;
+
+        @Schema(description = "信心指数(1-10)")
+        private Integer confidence;
+
+        @Schema(description = "状态(onTrack/atRisk/behind/done)")
+        private String krStatus;
 
         @Schema(description = "进度(0-1)")
         private BigDecimal progress;

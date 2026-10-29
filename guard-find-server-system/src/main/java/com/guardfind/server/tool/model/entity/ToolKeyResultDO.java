@@ -70,4 +70,14 @@ public class ToolKeyResultDO extends BaseDO {
      * 状态（1：进行中；2：已完成）
      */
     private Integer status;
+
+    /**
+     * 权重（1-10，目标进度按权重加权）
+     */
+    private Integer weight;
+
+    /**
+     * 信心指数（1-10，更新进度时联动调整）
+     */
+    private Integer confidence;
 }

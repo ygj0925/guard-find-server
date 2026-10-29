@@ -19,17 +19,25 @@ package com.guardfind.server.tool.service.impl;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import cn.hutool.core.util.StrUtil;
 import com.guardfind.server.app.context.AppUserContextHolder;
+import com.guardfind.server.app.mapper.AppUserMapper;
 import com.guardfind.server.ledger.service.LedgerGroupService;
 import com.guardfind.server.tool.mapper.ToolGoalMapper;
+import com.guardfind.server.tool.mapper.ToolKrLogMapper;
+import com.guardfind.server.tool.mapper.ToolTaskMapper;
 import com.guardfind.server.tool.mapper.ToolKeyResultMapper;
+import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.tool.model.entity.ToolGoalDO;
+import com.guardfind.server.tool.model.entity.ToolKrLogDO;
+import com.guardfind.server.tool.model.entity.ToolTaskDO;
 import com.guardfind.server.tool.model.entity.ToolKeyResultDO;
 import com.guardfind.server.tool.model.req.ToolGoalReq;
 import com.guardfind.server.tool.model.req.ToolKeyResultReq;
 import com.guardfind.server.tool.model.req.ToolKrProgressReq;
 import com.guardfind.server.tool.model.resp.ToolGoalResp;
+import com.guardfind.server.tool.model.resp.ToolKrLogResp;
 import com.guardfind.server.tool.service.ToolGoalService;
 import com.guardfind.server.tool.support.KrProgressCalculator;
+import com.guardfind.server.tool.support.KrStatusCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +46,10 @@ import top.continew.starter.core.exception.BusinessException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 目标 OKR 实现(个人维度)。
@@ -51,6 +63,9 @@ import java.util.List;
 public class ToolGoalServiceImpl implements ToolGoalService {
 
     private final ToolGoalMapper goalMapper;
+    private final ToolKrLogMapper logMapper;
+    private final ToolTaskMapper taskMapper;
+    private final AppUserMapper appUserMapper;
     private final ToolKeyResultMapper krMapper;
 
     // 预留:二期家庭共享目标时做组员校验
@@ -117,9 +132,19 @@ public class ToolGoalServiceImpl implements ToolGoalService {
     @Override
     public void updateKrProgress(Long krId, ToolKrProgressReq req) {
         ToolKeyResultDO kr = getOwnedKr(krId);
+        BigDecimal from = kr.getCurrentValue();
         kr.setCurrentValue(req.getCurrentValue());
-        kr.setStatus(KrProgressCalculator.achieved(req.getCurrentValue(), kr.getTargetValue()) ? 2 : 1);
+        boolean achieved = KrProgressCalculator.achieved(req.getCurrentValue(), kr.getTargetValue());
+        kr.setStatus(achieved ? 2 : 1);
         krMapper.updateById(kr);
+        // 时间线:每次更新留痕(飞书 check-in 口径)
+        ToolKrLogDO logEntry = new ToolKrLogDO();
+        logEntry.setKrId(krId);
+        logEntry.setUserId(kr.getUserId());
+        logEntry.setFromValue(from);
+        logEntry.setToValue(req.getCurrentValue());
+        logEntry.setConfidence(kr.getConfidence());
+        logMapper.insert(logEntry);
     }
 
     @Override
@@ -139,6 +164,96 @@ public class ToolGoalServiceImpl implements ToolGoalService {
     public void deleteKr(Long krId) {
         getOwnedKr(krId);
         krMapper.deleteById(krId);
+        // 解除任务关联
+        taskMapper.update(null, Wrappers.<com.guardfind.server.tool.model.entity.ToolTaskDO>update()
+            .eq("kr_id", krId)
+            .set("kr_id", null));
+    }
+
+    @Override
+    public void updateKr(Long krId, ToolKeyResultReq req, Integer confidence) {
+        ToolKeyResultDO kr = getOwnedKr(krId);
+        kr.setTitle(StrUtil.trim(req.getTitle()));
+        kr.setTargetValue(req.getTargetValue());
+        kr.setUnit(req.getUnit());
+        if (confidence != null) {
+            kr.setConfidence(Math.max(1, Math.min(10, confidence)));
+        }
+        krMapper.updateById(kr);
+    }
+
+    @Override
+    public List<ToolKrLogResp> krLogs(Long krId) {
+        getOwnedKr(krId);
+        List<ToolKrLogDO> logs = logMapper.selectList(Wrappers.<ToolKrLogDO>lambdaQuery()
+            .eq(ToolKrLogDO::getKrId, krId)
+            .orderByDesc(ToolKrLogDO::getId));
+        List<Long> userIds = logs.stream().map(ToolKrLogDO::getUserId).distinct().toList();
+        Map<Long, AppUserDO> users = userIds.isEmpty()
+            ? Map.of()
+            : appUserMapper.selectByIds(userIds)
+                .stream()
+                .collect(Collectors.toMap(AppUserDO::getId, Function.identity()));
+        return logs.stream().map(logEntry -> {
+            ToolKrLogResp resp = new ToolKrLogResp();
+            resp.setId(logEntry.getId());
+            resp.setFromValue(logEntry.getFromValue());
+            resp.setToValue(logEntry.getToValue());
+            resp.setConfidence(logEntry.getConfidence());
+            resp.setNote(logEntry.getNote());
+            resp.setCreateTime(logEntry.getCreateTime());
+            AppUserDO user = users.get(logEntry.getUserId());
+            if (user != null) {
+                resp.setNickname(user.getNickname());
+            }
+            return resp;
+        }).toList();
+    }
+
+    @Override
+    public void linkTask(Long krId, Long taskId) {
+        getOwnedKr(krId);
+        ToolTaskDO task = taskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException("任务不存在");
+        }
+        // 仅任务创建人或负责人可关联(防止把别人的任务挂到自己的 KR 上)
+        Long userId = AppUserContextHolder.getUserIdRequired();
+        if (!Objects.equals(task.getCreatorUserId(), userId) && !Objects.equals(task.getAssigneeUserId(), userId)) {
+            throw new BusinessException("只有任务的创建人或负责人可以关联");
+        }
+        task.setKrId(krId);
+        taskMapper.updateById(task);
+    }
+
+    @Override
+    public void unlinkTask(Long krId, Long taskId) {
+        getOwnedKr(krId);
+        ToolTaskDO task = taskMapper.selectById(taskId);
+        if (task == null || !Objects.equals(task.getKrId(), krId)) {
+            throw new BusinessException("任务与该 KR 无关联");
+        }
+        task.setKrId(null);
+        taskMapper.updateById(task);
+    }
+
+    @Override
+    public void setScore(Long id, BigDecimal score) {
+        ToolGoalDO goal = getOwned(id);
+        if (score == null || score.signum() < 0 || score.doubleValue() > 1) {
+            throw new BusinessException("评分取值 0-1");
+        }
+        goal.setScore(score.setScale(2, RoundingMode.HALF_UP));
+        goalMapper.updateById(goal);
+    }
+
+    private static int rank(String status) {
+        return switch (status) {
+            case KrStatusCalculator.BEHIND -> 0;
+            case KrStatusCalculator.AT_RISK -> 1;
+            case KrStatusCalculator.ON_TRACK -> 2;
+            default -> 3;
+        };
     }
 
     private void applyReq(ToolGoalDO goal, ToolGoalReq req) {
@@ -186,19 +301,33 @@ public class ToolGoalServiceImpl implements ToolGoalService {
             item.setCurrentValue(kr.getCurrentValue());
             item.setUnit(kr.getUnit());
             item.setStatus(kr.getStatus());
+            item.setWeight(kr.getWeight() == null ? 1 : kr.getWeight());
+            item.setConfidence(kr.getConfidence());
+            item.setKrStatus(KrStatusCalculator.status(KrStatusCalculator.periodRange(goal
+                .getPeriod())[0], KrStatusCalculator.periodRange(goal.getPeriod())[1], item.getProgress()
+                    .doubleValue(), item.getStatus() == 2));
             item.setProgress(KrProgressCalculator.percent(kr.getCurrentValue(), kr.getTargetValue()));
             return item;
         }).toList();
         resp.setKeyResults(items);
-        // 整体进度 = 各 KR 进度均值(无 KR 记 0)
+        // 整体进度 = ΣKR进度×权重 / Σ权重(无权重时权重=1);无 KR 记 0
         if (items.isEmpty()) {
             resp.setProgress(BigDecimal.ZERO);
         } else {
-            BigDecimal sum = items.stream()
-                .map(ToolGoalResp.KeyResult::getProgress)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-            resp.setProgress(sum.divide(BigDecimal.valueOf(items.size()), 4, RoundingMode.HALF_UP));
+            BigDecimal weightedSum = BigDecimal.ZERO;
+            BigDecimal weightSum = BigDecimal.ZERO;
+            for (ToolGoalResp.KeyResult item : items) {
+                BigDecimal weight = BigDecimal.valueOf(item.getWeight() == null ? 1 : item.getWeight());
+                weightedSum = weightedSum.add(item.getProgress().multiply(weight));
+                weightSum = weightSum.add(weight);
+            }
+            resp.setProgress(weightedSum.divide(weightSum, 4, RoundingMode.HALF_UP));
         }
+        // 整体状态 = 最落后的 KR 状态
+        resp.setGoalStatus(items.stream()
+            .map(ToolGoalResp.KeyResult::getKrStatus)
+            .min((a, b) -> rank(a) - rank(b))
+            .orElse(KrStatusCalculator.ON_TRACK));
         return resp;
     }
 }
