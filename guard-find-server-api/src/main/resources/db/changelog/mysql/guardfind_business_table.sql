@@ -1023,3 +1023,23 @@ ALTER TABLE `gf_tool_goal` ADD COLUMN `score` decimal(3, 2) DEFAULT NULL COMMENT
 -- changeset guardfind:30
 ALTER TABLE `gf_tool_task` ADD COLUMN `kr_id` bigint(20) DEFAULT NULL COMMENT '关联的 KR ID（可空；用于任务进度自动推进 KR）';
 ALTER TABLE `gf_tool_task` ADD INDEX `idx_kr`(`kr_id`);
+
+-- changeset guardfind:31
+CREATE TABLE IF NOT EXISTS `gf_app_user_binding` (
+    `id`          bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`     bigint(20)   NOT NULL                   COMMENT '关联的 App 用户 ID',
+    `provider`    varchar(20)  NOT NULL                   COMMENT '三方提供者（wechat/qq/douyin）',
+    `openid`      varchar(128) NOT NULL                   COMMENT '三方唯一标识',
+    `unionid`     varchar(128) DEFAULT NULL               COMMENT '微信跨应用 unionid（可空）',
+    `nickname`    varchar(100) DEFAULT NULL               COMMENT '三方昵称',
+    `avatar`      varchar(500) DEFAULT NULL               COMMENT '三方头像 URL',
+    `create_user` bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time` datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user` bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time` datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`     bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_provider_openid`(`provider`, `openid`, `deleted`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='三方登录绑定表';
