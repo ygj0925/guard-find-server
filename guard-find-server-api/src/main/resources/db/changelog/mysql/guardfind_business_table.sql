@@ -921,3 +921,75 @@ CREATE TABLE IF NOT EXISTS `gf_tool_checkin_record` (
     INDEX `idx_user`(`user_id`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='签到记录表';
+
+-- changeset guardfind:23
+CREATE TABLE IF NOT EXISTS `gf_tool_report` (
+    `id`           bigint(20)   AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)   NOT NULL                   COMMENT '发起人用户 ID',
+    `title`        varchar(100) NOT NULL                   COMMENT '汇报标题',
+    `period`       varchar(7)   NOT NULL                   COMMENT '汇报周期（yyyy-MM）',
+    `due_date`     datetime     DEFAULT NULL               COMMENT '提交截止时间（可空，超期提交标记迟交）',
+    `create_user`  bigint(20)   DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_period`(`period`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月度工作汇报活动表';
+
+-- changeset guardfind:24
+CREATE TABLE IF NOT EXISTS `gf_tool_report_member` (
+    `id`          bigint(20)  AUTO_INCREMENT                COMMENT 'ID',
+    `activity_id` bigint(20)  NOT NULL                      COMMENT '所属汇报活动 ID',
+    `user_id`     bigint(20)  NOT NULL                      COMMENT '成员用户 ID',
+    `role`        tinyint(4)  NOT NULL                      COMMENT '角色（1：发起人；2：填报人；3：接收人）',
+    `create_user` bigint(20)  DEFAULT NULL                  COMMENT '创建人',
+    `create_time` datetime    NOT NULL                      COMMENT '加入时间',
+    `update_user` bigint(20)  DEFAULT NULL                  COMMENT '修改人',
+    `update_time` datetime    DEFAULT NULL                  COMMENT '修改时间',
+    `deleted`     bigint(20)  NOT NULL DEFAULT 0            COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_activity_user`(`activity_id`, `user_id`, `deleted`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='汇报成员表（角色权限）';
+
+-- changeset guardfind:25
+CREATE TABLE IF NOT EXISTS `gf_tool_report_entry` (
+    `id`           bigint(20)   AUTO_INCREMENT              COMMENT 'ID',
+    `activity_id`  bigint(20)   NOT NULL                    COMMENT '所属汇报活动 ID',
+    `user_id`      bigint(20)   NOT NULL                    COMMENT '填报人用户 ID',
+    `content`      mediumtext                               COMMENT '汇报正文',
+    `status`       tinyint(4)   NOT NULL DEFAULT 1          COMMENT '状态（1：草稿；2：已提交）',
+    `submitted_at` datetime     DEFAULT NULL                COMMENT '提交时间（迟交=晚于 due_date）',
+    `create_user`  bigint(20)   DEFAULT NULL                COMMENT '创建人',
+    `create_time`  datetime     NOT NULL                    COMMENT '创建时间',
+    `update_user`  bigint(20)   DEFAULT NULL                COMMENT '修改人',
+    `update_time`  datetime     DEFAULT NULL                COMMENT '修改时间',
+    `deleted`      bigint(20)   NOT NULL DEFAULT 0          COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_activity_user`(`activity_id`, `user_id`, `deleted`),
+    INDEX `idx_user`(`user_id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月报填报表';
+
+-- changeset guardfind:26
+CREATE TABLE IF NOT EXISTS `gf_tool_report_comment` (
+    `id`                   bigint(20)   AUTO_INCREMENT      COMMENT 'ID',
+    `entry_id`             bigint(20)   NOT NULL            COMMENT '所属月报 ID',
+    `user_id`              bigint(20)   NOT NULL            COMMENT '评论人用户 ID',
+    `content`              varchar(500) NOT NULL            COMMENT '评论内容',
+    `reply_to_comment_id`  bigint(20)   DEFAULT NULL        COMMENT '回复的评论 ID（楼中楼，可空）',
+    `reply_to_user_id`     bigint(20)   DEFAULT NULL        COMMENT '回复目标用户 ID（冗余，可空）',
+    `create_user`          bigint(20)   DEFAULT NULL        COMMENT '创建人',
+    `create_time`          datetime     NOT NULL            COMMENT '创建时间',
+    `update_user`          bigint(20)   DEFAULT NULL        COMMENT '修改人',
+    `update_time`          datetime     DEFAULT NULL        COMMENT '修改时间',
+    `deleted`              bigint(20)   NOT NULL DEFAULT 0  COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_entry`(`entry_id`, `id`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月报评论表';
