@@ -95,6 +95,12 @@ public class ToolGoalResp implements Serializable {
         @Schema(description = "状态(onTrack/atRisk/behind/done)")
         private String krStatus;
 
+        @Schema(description = "关联任务已完成数")
+        private Long taskDone;
+
+        @Schema(description = "关联任务总数")
+        private Long taskTotal;
+
         @Schema(description = "进度(0-1)")
         private BigDecimal progress;
     }

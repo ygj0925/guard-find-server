@@ -288,7 +288,7 @@ public class ToolGoalServiceImpl implements ToolGoalService {
         return kr;
     }
 
-    private static ToolGoalResp toResp(ToolGoalDO goal, List<ToolKeyResultDO> krs) {
+    private ToolGoalResp toResp(ToolGoalDO goal, List<ToolKeyResultDO> krs) {
         ToolGoalResp resp = new ToolGoalResp();
         resp.setId(goal.getId());
         resp.setTitle(goal.getTitle());
@@ -303,10 +303,15 @@ public class ToolGoalServiceImpl implements ToolGoalService {
             item.setStatus(kr.getStatus());
             item.setWeight(kr.getWeight() == null ? 1 : kr.getWeight());
             item.setConfidence(kr.getConfidence());
+            item.setProgress(KrProgressCalculator.percent(kr.getCurrentValue(), kr.getTargetValue()));
+            // 关联任务进度
+            List<ToolTaskDO> linked = taskMapper.selectList(Wrappers.<ToolTaskDO>lambdaQuery()
+                .eq(ToolTaskDO::getKrId, kr.getId()));
+            item.setTaskTotal((long)linked.size());
+            item.setTaskDone(linked.stream().filter(t -> t.getStatus() != null && t.getStatus() == 3).count());
             item.setKrStatus(KrStatusCalculator.status(KrStatusCalculator.periodRange(goal
                 .getPeriod())[0], KrStatusCalculator.periodRange(goal.getPeriod())[1], item.getProgress()
                     .doubleValue(), item.getStatus() == 2));
-            item.setProgress(KrProgressCalculator.percent(kr.getCurrentValue(), kr.getTargetValue()));
             return item;
         }).toList();
         resp.setKeyResults(items);
