@@ -244,6 +244,8 @@ sa-token.extension:
     - /*/*.css
     - /*/*.js
     - /websocket/**
+    # IM WebSocket 端点：握手拦截器以 token 参数自行鉴权
+    - /ws/**
     # 接口文档相关资源
     - /favicon.ico
     - /doc.html

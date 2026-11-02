@@ -93,7 +93,12 @@ public class PropertyServiceImpl implements PropertyService {
         // 浏览计数自增
         propertyMapper.update(null, Wrappers.<PropertyDO>update().eq("id", id).setSql("view_count = view_count + 1"));
         property.setViewCount(property.getViewCount() + 1);
-        return toResp(property);
+        PropertyResp resp = toResp(property);
+        AppUserDO owner = appUserMapper.selectById(property.getUserId());
+        if (owner != null) {
+            fillOwner(resp, owner);
+        }
+        return resp;
     }
 
     @Override
@@ -164,8 +169,7 @@ public class PropertyServiceImpl implements PropertyService {
             PropertyResp resp = toResp(property);
             AppUserDO user = users.get(property.getUserId());
             if (user != null) {
-                resp.setOwnerNickname(user.getNickname());
-                resp.setOwnerAvatar(user.getAvatar());
+                fillOwner(resp, user);
             }
             return resp;
         }).toList();
@@ -173,6 +177,12 @@ public class PropertyServiceImpl implements PropertyService {
         pageResp.setList(list);
         pageResp.setTotal(page.getTotal());
         return pageResp;
+    }
+
+    private void fillOwner(PropertyResp resp, AppUserDO user) {
+        resp.setOwnerNickname(user.getNickname());
+        resp.setOwnerAvatar(user.getAvatar());
+        resp.setOwnerIsManager(user.getIsPropertyManager() != null && user.getIsPropertyManager() == 1);
     }
 
     private PropertyResp toResp(PropertyDO property) {

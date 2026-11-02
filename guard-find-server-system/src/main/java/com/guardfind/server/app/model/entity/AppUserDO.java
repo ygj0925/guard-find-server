@@ -84,6 +84,9 @@ public class AppUserDO extends BaseDO {
      */
     private String realNameStatus;
 
+    /** 是否房产管家（0：否；1：是） */
+    private Integer isPropertyManager;
+
     /**
      * 常驻省编码
      */

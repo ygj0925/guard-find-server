@@ -252,6 +252,8 @@ sa-token.extension:
     - /*/*.css
     - /*/*.js
     - /websocket/**
+    # IM WebSocket 端点：握手拦截器以 token 参数自行鉴权
+    - /ws/**
     # 本地存储资源
     - /file/**
     # C 端接口：由 AppSaTokenInterceptor 以独立登录域（loginType=app）自行完成认证与放行

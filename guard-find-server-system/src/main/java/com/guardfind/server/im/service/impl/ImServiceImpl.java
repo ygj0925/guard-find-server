@@ -29,9 +29,11 @@ import com.guardfind.server.im.model.entity.ImMessageDO;
 import com.guardfind.server.im.model.resp.ImConversationResp;
 import com.guardfind.server.im.model.resp.ImMessageResp;
 import com.guardfind.server.im.service.ImService;
+import com.guardfind.server.im.websocket.ImWebSocketHandler;
 import com.guardfind.server.notification.enums.NotificationEventEnum;
 import com.guardfind.server.notification.service.AppMessageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.continew.starter.core.exception.BusinessException;
@@ -44,9 +46,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * IM 私信实现(轮询方案)。
+ * IM 私信实现(REST 落库 + WebSocket 实时推送,断线自动降级轮询)。
  * 会话键: user_a_id < user_b_id 保证唯一对;unread_a/b 分别计未读;
- * 发消息时对方收到站内信通知;删除会话仅自己视角隐藏。
+ * 发消息时对方收到站内信通知 + WS 实时推送;删除会话仅自己视角隐藏。
  */
 @Service
 @RequiredArgsConstructor
@@ -56,6 +58,8 @@ public class ImServiceImpl implements ImService {
     private final ImMessageMapper messageMapper;
     private final AppUserMapper appUserMapper;
     private final AppMessageService messageService;
+    /** 延迟获取 WS Handler,避免与 ImService 的循环依赖 */
+    private final ObjectProvider<ImWebSocketHandler> wsHandlerProvider;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -160,6 +164,12 @@ public class ImServiceImpl implements ImService {
 
         // 站内信通知对方
         messageService.send(peerId, NotificationEventEnum.POST_COMMENTED, "IM", conversationId, "新消息", "你有一条新消息,点击查看");
+
+        // WebSocket 实时推送(对方不在线时无副作用,客户端降级轮询)
+        ImWebSocketHandler wsHandler = wsHandlerProvider.getIfAvailable();
+        if (wsHandler != null) {
+            wsHandler.pushNewMessage(peerId, conversationId, userId, trimmed, msg.getId());
+        }
 
         ImMessageResp resp = new ImMessageResp();
         resp.setId(msg.getId());

@@ -36,6 +36,8 @@ public class PropertyResp implements Serializable {
     private Long userId;
     private String ownerNickname;
     private String ownerAvatar;
+    /** 房东是否认证管家。 */
+    private Boolean ownerIsManager;
     private String title;
     private String description;
     private String propertyType;

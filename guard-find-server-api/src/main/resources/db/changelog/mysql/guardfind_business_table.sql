@@ -1122,7 +1122,7 @@ CREATE TABLE IF NOT EXISTS `gf_property` (
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房产房源表';
 
--- changeset guardfind:34
+-- changeset guardfind:35
 CREATE TABLE IF NOT EXISTS `gf_im_conversation` (
     `id`            bigint(20)  AUTO_INCREMENT            COMMENT 'ID',
     `user_a_id`     bigint(20)  NOT NULL                  COMMENT '用户 A（user_a < user_b，保证唯一对）',
@@ -1143,7 +1143,7 @@ CREATE TABLE IF NOT EXISTS `gf_im_conversation` (
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 会话表';
 
--- changeset guardfind:35
+-- changeset guardfind:36
 CREATE TABLE IF NOT EXISTS `gf_im_message` (
     `id`             bigint(20)   AUTO_INCREMENT           COMMENT 'ID',
     `conversation_id` bigint(20)  NOT NULL                COMMENT '所属会话 ID',
@@ -1156,7 +1156,7 @@ CREATE TABLE IF NOT EXISTS `gf_im_message` (
     INDEX `idx_sender`(`sender_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 消息表';
 
--- changeset guardfind:36
+-- changeset guardfind:37
 CREATE TABLE IF NOT EXISTS `gf_budget` (
     `id`             bigint(20)    AUTO_INCREMENT            COMMENT 'ID',
     `user_id`        bigint(20)    NOT NULL                  COMMENT '所属用户 ID',
@@ -1173,3 +1173,7 @@ CREATE TABLE IF NOT EXISTS `gf_budget` (
     INDEX `idx_user_period`(`user_id`, `period`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账预算表';
+
+-- changeset guardfind:38
+ALTER TABLE `gf_app_user` ADD COLUMN `is_property_manager` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否房产管家（0：否；1：是）';
+
