@@ -48,6 +48,11 @@ public class PropertyResp implements Serializable {
     private String decoration;
     private BigDecimal price;
     private String priceType;
+    private String community;
+    /** 可入住日期 */
+    private java.time.LocalDate availableFrom;
+    /** 租赁方式(whole=整租/shared=合租;仅出租) */
+    private String rentalMode;
     private String address;
     private String district;
     private String city;

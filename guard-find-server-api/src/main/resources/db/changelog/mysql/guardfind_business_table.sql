@@ -1232,3 +1232,8 @@ CREATE TABLE IF NOT EXISTS `gf_property_booking` (
     INDEX `idx_owner_status`(`owner_id`, `status`),
     INDEX `idx_property`(`property_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房源预约看房表';
+
+-- changeset guardfind:43
+ALTER TABLE `gf_property` ADD COLUMN `community` varchar(100) DEFAULT NULL COMMENT '小区名称';
+ALTER TABLE `gf_property` ADD COLUMN `available_from` date DEFAULT NULL COMMENT '可入住日期';
+ALTER TABLE `gf_property` ADD COLUMN `rental_mode` varchar(10) DEFAULT NULL COMMENT '租赁方式（whole=整租/shared=合租；仅出租）';

@@ -65,7 +65,11 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
-    public PageResp<PropertyResp> page(String city, String propertyType, String priceType, PageQuery pageQuery) {
+    public PageResp<PropertyResp> page(String city,
+                                       String propertyType,
+                                       String priceType,
+                                       String rentalMode,
+                                       PageQuery pageQuery) {
         Page<PropertyDO> page = propertyMapper.selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
             .<PropertyDO>lambdaQuery()
             .eq(PropertyDO::getStatus, 2)
@@ -204,6 +208,9 @@ public class PropertyServiceImpl implements PropertyService {
         property.setDecoration(StrUtil.trimToNull(req.getDecoration()));
         property.setPrice(req.getPrice());
         property.setPriceType(req.getPriceType());
+        property.setCommunity(StrUtil.trimToNull(req.getCommunity()));
+        property.setAvailableFrom(req.getAvailableFrom());
+        property.setRentalMode(StrUtil.trimToNull(req.getRentalMode()));
         property.setAddress(StrUtil.trim(req.getAddress()));
         property.setDistrict(StrUtil.trimToNull(req.getDistrict()));
         property.setCity(StrUtil.trimToNull(req.getCity()));

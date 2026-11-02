@@ -29,7 +29,11 @@ public interface PropertyService {
 
     Long create(Long userId, PropertyReq req);
 
-    PageResp<PropertyResp> page(String city, String propertyType, String priceType, PageQuery pageQuery);
+    PageResp<PropertyResp> page(String city,
+                                String propertyType,
+                                String priceType,
+                                String rentalMode,
+                                PageQuery pageQuery);
 
     PageResp<PropertyResp> mine(Long userId, PageQuery pageQuery);
 

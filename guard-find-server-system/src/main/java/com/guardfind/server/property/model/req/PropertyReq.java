@@ -83,6 +83,11 @@ public class PropertyReq implements Serializable {
     @Schema(description = "详细地址")
     @NotBlank(message = "地址不能为空")
     @Length(max = 200, message = "地址不能超过 {max} 个字符")
+    private String community;
+    /** 可入住日期(yyyy-MM-dd) */
+    private java.time.LocalDate availableFrom;
+    /** 租赁方式(whole=整租/shared=合租;仅出租) */
+    private String rentalMode;
     private String address;
 
     @Schema(description = "区域")

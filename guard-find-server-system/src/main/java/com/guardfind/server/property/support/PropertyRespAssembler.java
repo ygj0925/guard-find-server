@@ -45,6 +45,9 @@ public final class PropertyRespAssembler {
         resp.setDecoration(property.getDecoration());
         resp.setPrice(property.getPrice());
         resp.setPriceType(property.getPriceType());
+        resp.setCommunity(property.getCommunity());
+        resp.setAvailableFrom(property.getAvailableFrom());
+        resp.setRentalMode(property.getRentalMode());
         resp.setAddress(property.getAddress());
         resp.setDistrict(property.getDistrict());
         resp.setCity(property.getCity());

@@ -71,8 +71,9 @@ public class PropertyController {
     public PageResp<PropertyResp> list(@RequestParam(required = false) String city,
                                        @RequestParam(required = false) String propertyType,
                                        @RequestParam(required = false) String priceType,
+                                       @RequestParam(required = false) String rentalMode,
                                        PageQuery pageQuery) {
-        return propertyService.page(city, propertyType, priceType, pageQuery);
+        return propertyService.page(city, propertyType, priceType, rentalMode, pageQuery);
     }
 
     @Operation(summary = "我的房源", description = "含草稿/已下架")
