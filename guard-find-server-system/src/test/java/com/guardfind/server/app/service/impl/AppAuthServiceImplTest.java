@@ -97,7 +97,9 @@ class AppAuthServiceImplTest extends ContainerlessTestBase {
     @BeforeEach
     void setUp() {
         // authenticate / doSendSmsCode 分别依赖 Sa-Token 与短信通道，测试中以 spy 打桩隔离
-        appAuthService = spy(new AppAuthServiceImpl(appUserService, clientService, captchaProperties, smsConfigService, passwordEncoder));
+        appAuthService = spy(new AppAuthServiceImpl(appUserService, clientService, captchaProperties, smsConfigService, passwordEncoder, org.mockito.Mockito
+            .mock(com.guardfind.server.app.oauth.WechatMiniappService.class), org.mockito.Mockito
+                .mock(com.guardfind.server.app.oauth.OAuthBindingService.class)));
     }
 
     @Test

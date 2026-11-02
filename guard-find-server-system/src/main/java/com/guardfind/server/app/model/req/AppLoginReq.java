@@ -39,7 +39,8 @@ import java.io.Serializable;
 @Data
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "authType", visible = true)
 @JsonSubTypes({@JsonSubTypes.Type(value = AppAccountLoginReq.class, name = "ACCOUNT"),
-    @JsonSubTypes.Type(value = AppPhoneLoginReq.class, name = "PHONE")})
+    @JsonSubTypes.Type(value = AppPhoneLoginReq.class, name = "PHONE"),
+    @JsonSubTypes.Type(value = AppWechatLoginReq.class, name = "WECHAT")})
 @Schema(description = "C 端登录请求参数基类")
 public class AppLoginReq implements Serializable {
 

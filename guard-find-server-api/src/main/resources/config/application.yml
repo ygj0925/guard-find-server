@@ -388,3 +388,11 @@ auth:
       - /auth/logout
       - /system/user/password
 
+
+--- ### 三方 OAuth 配置(AppID/AppSecret 从环境变量注入;留空 = 对应按钮置灰/登录拒绝)
+guardfind:
+  oauth:
+    ## 微信(小程序一键登录与三方登录共用)
+    wechat:
+      app-id: ${WECHAT_APP_ID:}
+      app-secret: ${WECHAT_APP_SECRET:}

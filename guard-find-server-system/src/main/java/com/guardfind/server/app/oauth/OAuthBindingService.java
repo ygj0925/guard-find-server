@@ -18,6 +18,9 @@ package com.guardfind.server.app.oauth;
 
 import com.guardfind.server.app.model.entity.AppUserDO;
 
+import com.guardfind.server.app.constant.AppAuthConstants;
+import com.guardfind.server.app.enums.AccountStatusEnum;
+import com.guardfind.server.app.enums.IdentityTypeEnum;
 import com.guardfind.server.app.mapper.AppUserBindingMapper;
 import com.guardfind.server.app.model.entity.AppUserBindingDO;
 import com.guardfind.server.app.mapper.AppUserMapper;
@@ -68,12 +71,17 @@ public class OAuthBindingService {
         bindingMapper.insert(binding);
     }
 
-    /** 自动创建新用户(三方首次登录且未注册) */
+    /** 自动创建新用户(三方首次登录且未注册;默认值与手机号建档保持一致) */
     @Transactional(rollbackFor = Exception.class)
     public AppUserDO createFromOAuth(String provider, OAuthUserInfo info) {
         AppUserDO user = new AppUserDO();
         user.setNickname(info.getNickname() != null ? info.getNickname() : "用户" + info.getOpenid().substring(0, 6));
         user.setAvatar(info.getAvatar());
+        user.setAccountStatus(AccountStatusEnum.NORMAL.getValue());
+        user.setIdentityType(IdentityTypeEnum.PUBLIC.name());
+        user.setRealNameStatus(AppAuthConstants.DEFAULT_REAL_NAME_STATUS);
+        user.setVolunteerVerified(false);
+        user.setRegistrationSource(AppAuthConstants.DEFAULT_REGISTRATION_SOURCE);
         appUserMapper.insert(user);
         bind(user.getId(), provider, info);
         return user;

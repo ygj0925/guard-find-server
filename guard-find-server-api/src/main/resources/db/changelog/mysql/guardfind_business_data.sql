@@ -149,3 +149,7 @@ VALUES (9400, '运营管理', 0, 1, '/operation', 'Operation', 'Layout', '/opera
 ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `component` = VALUES(`component`);
 -- 前端页面尚未实现的管理页暂隐(避免侧边栏白屏);页面落地后再放开
 UPDATE `sys_menu` SET `is_hidden` = b'1' WHERE `id` IN (9310, 9320, 9330, 9340, 9350);
+
+-- changeset guardfind:4
+-- comment 微信小程序一键登录：APP 客户端放开 WECHAT 认证方式
+UPDATE `sys_client` SET `auth_type` = '["PHONE", "ACCOUNT", "WECHAT"]' WHERE `client_id` = 'a7d3f1c9b5e24086f1a9c4d7e0b23158';

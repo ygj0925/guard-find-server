@@ -48,6 +48,11 @@ public enum AuthTypeEnum implements BaseEnum<String> {
     PHONE("PHONE", "手机号", UiConstants.COLOR_PRIMARY),
 
     /**
+     * 微信(小程序一键登录)
+     */
+    WECHAT("WECHAT", "微信", UiConstants.COLOR_PRIMARY),
+
+    /**
      * 第三方账号
      */
     SOCIAL("SOCIAL", "第三方账号", UiConstants.COLOR_ERROR);

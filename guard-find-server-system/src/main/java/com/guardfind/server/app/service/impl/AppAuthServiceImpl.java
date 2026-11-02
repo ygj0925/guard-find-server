@@ -45,6 +45,8 @@ import com.guardfind.server.app.model.req.AppAccountLoginReq;
 import com.guardfind.server.app.model.req.AppLoginReq;
 import com.guardfind.server.app.model.req.AppPasswordReq;
 import com.guardfind.server.app.model.req.AppPhoneLoginReq;
+import com.guardfind.server.app.model.req.AppWechatLoginReq;
+import com.guardfind.server.app.oauth.OAuthUserInfo;
 import com.guardfind.server.app.model.req.AppResetPasswordReq;
 import com.guardfind.server.app.model.req.AppSmsCodeReq;
 import com.guardfind.server.app.model.resp.AppLoginResp;
@@ -99,6 +101,8 @@ public class AppAuthServiceImpl implements AppAuthService {
     private final CaptchaProperties captchaProperties;
     private final SmsConfigService smsConfigService;
     private final PasswordEncoder passwordEncoder;
+    private final com.guardfind.server.app.oauth.WechatMiniappService wechatMiniappService;
+    private final com.guardfind.server.app.oauth.OAuthBindingService oauthBindingService;
 
     @Override
     public AppSmsCodeResp sendSmsCode(AppSmsCodeReq req, HttpServletRequest request) {
@@ -122,6 +126,7 @@ public class AppAuthServiceImpl implements AppAuthService {
         // 校验客户端（会话策略取自 sys_client 的 APP 行，不在代码中硬编码）
         ClientResp client = this.getAppClient(authType);
         AppLoginUser loginUser = switch (authType) {
+            case WECHAT -> this.wechatMiniappLogin((AppWechatLoginReq)req);
             case PHONE -> this.phoneLogin((AppPhoneLoginReq)req);
             case ACCOUNT -> this.accountLogin((AppAccountLoginReq)req, request);
             default -> throw new BusinessException("暂不支持该登录方式");
@@ -213,6 +218,26 @@ public class AppAuthServiceImpl implements AppAuthService {
         }
         RedisUtils.delete(AppAuthConstants.appSmsCodeErrorKey(phone));
         return appUserService.obtainOrRegisterByPhone(phone);
+    }
+
+    /**
+     * 微信小程序一键登录:code 换 openid,凭 openid 找绑定用户,未注册自动建档
+     *
+     * @param req 登录请求参数
+     * @return 登录主体
+     */
+    AppLoginUser wechatMiniappLogin(AppWechatLoginReq req) {
+        com.guardfind.server.app.oauth.WechatMiniappService.WxSession session = wechatMiniappService.jsCode2Session(req
+            .getCode());
+        AppUserDO user = oauthBindingService.findByOpenid("wechat", session.getOpenid());
+        if (user != null) {
+            return new AppLoginUser(user, false);
+        }
+        OAuthUserInfo info = new OAuthUserInfo();
+        info.setOpenid(session.getOpenid());
+        info.setUnionid(session.getUnionid());
+        user = oauthBindingService.createFromOAuth("wechat", info);
+        return new AppLoginUser(user, true);
     }
 
     /**
