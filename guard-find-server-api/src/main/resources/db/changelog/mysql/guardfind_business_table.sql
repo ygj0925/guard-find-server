@@ -1121,3 +1121,37 @@ CREATE TABLE IF NOT EXISTS `gf_property` (
     INDEX `idx_city`(`city`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房产房源表';
+
+-- changeset guardfind:34
+CREATE TABLE IF NOT EXISTS `gf_im_conversation` (
+    `id`            bigint(20)  AUTO_INCREMENT            COMMENT 'ID',
+    `user_a_id`     bigint(20)  NOT NULL                  COMMENT '用户 A（user_a < user_b，保证唯一对）',
+    `user_b_id`     bigint(20)  NOT NULL                  COMMENT '用户 B',
+    `last_message`  varchar(200) DEFAULT NULL             COMMENT '最后一条消息摘要',
+    `last_time`     datetime    NOT NULL                  COMMENT '最后消息时间',
+    `unread_a`      int(11)     NOT NULL DEFAULT 0        COMMENT 'A 未读数（B 发给 A 的未读）',
+    `unread_b`      int(11)     NOT NULL DEFAULT 0        COMMENT 'B 未读数（A 发给 B 的未读）',
+    `create_user`   bigint(20)  DEFAULT NULL              COMMENT '创建人',
+    `create_time`   datetime    NOT NULL                  COMMENT '创建时间',
+    `update_user`   bigint(20)  DEFAULT NULL              COMMENT '修改人',
+    `update_time`   datetime    DEFAULT NULL              COMMENT '修改时间',
+    `deleted`       bigint(20)  NOT NULL DEFAULT 0        COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_pair`(`user_a_id`, `user_b_id`, `deleted`),
+    INDEX `idx_a_time`(`user_a_id`, `last_time`),
+    INDEX `idx_b_time`(`user_b_id`, `last_time`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 会话表';
+
+-- changeset guardfind:35
+CREATE TABLE IF NOT EXISTS `gf_im_message` (
+    `id`             bigint(20)   AUTO_INCREMENT           COMMENT 'ID',
+    `conversation_id` bigint(20)  NOT NULL                COMMENT '所属会话 ID',
+    `sender_id`      bigint(20)   NOT NULL                COMMENT '发送者用户 ID',
+    `content`        varchar(2000) NOT NULL               COMMENT '消息内容',
+    `is_read`        tinyint(4)   NOT NULL DEFAULT 0      COMMENT '是否已读（0：否；1：是）',
+    `create_time`    datetime     NOT NULL                COMMENT '发送时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_conv_time`(`conversation_id`, `id`),
+    INDEX `idx_sender`(`sender_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 消息表';
