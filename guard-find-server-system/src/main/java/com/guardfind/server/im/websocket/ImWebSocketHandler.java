@@ -143,6 +143,34 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
     }
 
     /**
+     * 向指定用户推送后台客服消息(管理员与用户沟通)
+     */
+    public void pushAdminMessage(Long targetUserId, Long messageId, String content, String adminName) {
+        Set<WebSocketSession> sessions = USER_SESSIONS.get(targetUserId);
+        if (sessions == null || sessions.isEmpty())
+            return;
+        String payload;
+        try {
+            payload = objectMapper.writeValueAsString(Map
+                .of("action", "admin_message", "messageId", messageId, "content", content, "adminName", adminName == null
+                    ? "官方客服"
+                    : adminName));
+        } catch (Exception e) {
+            log.warn("[ws:im] 序列化客服消息失败: {}", e.getMessage());
+            return;
+        }
+        TextMessage textMessage = new TextMessage(payload);
+        for (WebSocketSession session : sessions) {
+            try {
+                if (session.isOpen())
+                    session.sendMessage(textMessage);
+            } catch (Exception e) {
+                log.warn("[ws:im] 推送客服消息到用户 {} 失败: {}", targetUserId, e.getMessage());
+            }
+        }
+    }
+
+    /**
      * 从 WebSocketSession attributes 中获取用户 ID(握手时由 Interceptor 写入)
      */
     private Long getUserId(WebSocketSession session) {

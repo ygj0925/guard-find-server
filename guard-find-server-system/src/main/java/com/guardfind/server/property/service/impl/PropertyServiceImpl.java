@@ -25,6 +25,7 @@ import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.property.mapper.PropertyMapper;
 import com.guardfind.server.property.model.entity.PropertyDO;
 import com.guardfind.server.property.model.req.PropertyReq;
+import com.guardfind.server.property.model.resp.PropertyManagerResp;
 import com.guardfind.server.property.model.resp.PropertyResp;
 import com.guardfind.server.property.service.PropertyService;
 import lombok.RequiredArgsConstructor;
@@ -32,10 +33,6 @@ import org.springframework.stereotype.Service;
 import top.continew.starter.core.exception.BusinessException;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
-
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import java.util.List;
 import java.util.Map;
@@ -122,6 +119,68 @@ public class PropertyServiceImpl implements PropertyService {
         }
         property.setStatus(status);
         propertyMapper.updateById(property);
+    }
+
+    @Override
+    public PageResp<PropertyResp> pageForAdmin(Integer status, String city, String priceType, PageQuery pageQuery) {
+        Page<PropertyDO> page = propertyMapper.selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
+            .<PropertyDO>lambdaQuery()
+            .eq(status != null && status > 0, PropertyDO::getStatus, status)
+            .eq(StrUtil.isNotBlank(city), PropertyDO::getCity, city)
+            .eq(StrUtil.isNotBlank(priceType), PropertyDO::getPriceType, priceType)
+            .orderByDesc(PropertyDO::getCreateTime));
+        return toPage(page);
+    }
+
+    @Override
+    public void updateStatusForAdmin(Long id, Integer status) {
+        if (status == null || status < 1 || status > 3) {
+            throw new BusinessException("状态取值不合法");
+        }
+        PropertyDO property = propertyMapper.selectById(id);
+        if (property == null) {
+            throw new BusinessException("房源不存在");
+        }
+        property.setStatus(status);
+        propertyMapper.updateById(property);
+    }
+
+    @Override
+    public void deleteForAdmin(Long id) {
+        if (propertyMapper.selectById(id) == null) {
+            throw new BusinessException("房源不存在");
+        }
+        propertyMapper.deleteById(id);
+    }
+
+    @Override
+    public void setManager(Long userId, boolean isManager) {
+        AppUserDO user = appUserMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException("用户不存在");
+        }
+        user.setIsPropertyManager(isManager ? 1 : 0);
+        appUserMapper.updateById(user);
+    }
+
+    @Override
+    public PageResp<PropertyManagerResp> listManagers(PageQuery pageQuery) {
+        Page<AppUserDO> page = appUserMapper.selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
+            .<AppUserDO>lambdaQuery()
+            .eq(AppUserDO::getIsPropertyManager, 1)
+            .orderByDesc(AppUserDO::getId));
+        List<PropertyManagerResp> list = page.getRecords().stream().map(user -> {
+            PropertyManagerResp resp = new PropertyManagerResp();
+            resp.setUserId(user.getId());
+            resp.setNickname(user.getNickname());
+            resp.setAvatar(user.getAvatar());
+            resp.setPhone(user.getPhone());
+            return resp;
+        }).toList();
+        PageResp<PropertyManagerResp> pageResp = new PageResp<>();
+        pageResp.setList(list);
+        pageResp.setTotal(page.getTotal());
+        return pageResp;
     }
 
     private void applyReq(PropertyDO property, PropertyReq req) {

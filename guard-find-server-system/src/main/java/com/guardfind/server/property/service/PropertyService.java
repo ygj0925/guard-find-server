@@ -40,4 +40,29 @@ public interface PropertyService {
     void delete(Long id, Long userId);
 
     void updateStatus(Long id, Long userId, Integer status);
+
+    /**
+     * 后台:全量房源分页(含草稿/下架),支持状态/城市/租售筛选。
+     */
+    PageResp<PropertyResp> pageForAdmin(Integer status, String city, String priceType, PageQuery pageQuery);
+
+    /**
+     * 后台:强制上下架(1 草稿 / 2 上架 / 3 下架),不受房东身份限制。
+     */
+    void updateStatusForAdmin(Long id, Integer status);
+
+    /**
+     * 后台:删除房源。
+     */
+    void deleteForAdmin(Long id);
+
+    /**
+     * 后台:设置/取消用户的房源管家身份。
+     */
+    void setManager(Long userId, boolean isManager);
+
+    /**
+     * 后台:管家用户分页(仅返回 is_property_manager = 1 的用户)。
+     */
+    PageResp<com.guardfind.server.property.model.resp.PropertyManagerResp> listManagers(PageQuery pageQuery);
 }

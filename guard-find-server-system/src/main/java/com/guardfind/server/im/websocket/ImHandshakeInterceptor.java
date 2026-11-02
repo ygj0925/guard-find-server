@@ -16,7 +16,7 @@
 
 package com.guardfind.server.im.websocket;
 
-import cn.dev33.satoken.stp.StpUtil;
+import com.guardfind.server.app.util.StpAppUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -44,7 +44,7 @@ public class ImHandshakeInterceptor implements HandshakeInterceptor {
             String token = servletRequest.getServletRequest().getParameter("token");
             if (token != null && !token.isBlank()) {
                 try {
-                    Object loginId = StpUtil.getLoginIdByToken(token);
+                    Object loginId = StpAppUtil.stpLogic().getLoginIdByToken(token);
                     if (loginId != null) {
                         attributes.put("userId", Long.parseLong(loginId.toString()));
                         return true;
@@ -54,7 +54,7 @@ public class ImHandshakeInterceptor implements HandshakeInterceptor {
                 }
             }
         }
-        log.warn("[ws:im] WebSocket 握手未通过鉴权");
+        log.warn("[ws:im] WebSocket 握手未通过鉴权(app 登录域)");
         return false;
     }
 

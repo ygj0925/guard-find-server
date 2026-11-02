@@ -107,21 +107,21 @@ VALUES (1, 'rangaihuijia', '公开寻亲库（关爱回家）', 'https://www.ran
 INSERT INTO `sys_menu`
 (`id`, `title`, `parent_id`, `type`, `path`, `name`, `component`, `redirect`, `icon`, `is_external`, `is_cache`, `is_hidden`, `permission`, `sort`, `status`, `create_user`, `create_time`)
 VALUES (9300, '寻亲治理', 0, 1, '/guardfind', 'GuardFind', 'Layout', '/guardfind/moderation', 'heart', b'0', b'0', b'0', NULL, 9, 1, 1, NOW()),
-       (9310, '内容审核', 9300, 2, '/guardfind/moderation', 'GuardFindModeration', 'guardfind/moderation/index', NULL, 'audit', b'0', b'0', b'0', NULL, 1, 1, 1, NOW()),
+       (9310, '内容审核', 9300, 2, '/guardfind/moderation', 'GuardFindModeration', 'guardfind/moderation/index', NULL, 'audit', b'0', b'0', b'1', NULL, 1, 1, 1, NOW()),
        (9311, '列表', 9310, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:moderation:list', 1, 1, 1, NOW()),
        (9312, '审核通过', 9310, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:moderation:approve', 2, 1, 1, NOW()),
        (9313, '审核驳回', 9310, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:moderation:reject', 3, 1, 1, NOW()),
-       (9320, '举报管理', 9300, 2, '/guardfind/report', 'GuardFindReport', 'guardfind/report/index', NULL, 'warning', b'0', b'0', b'0', NULL, 2, 1, 1, NOW()),
+       (9320, '举报管理', 9300, 2, '/guardfind/report', 'GuardFindReport', 'guardfind/report/index', NULL, 'warning', b'0', b'0', b'1', NULL, 2, 1, 1, NOW()),
        (9321, '列表', 9320, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:moderation:report:list', 1, 1, 1, NOW()),
        (9322, '处理', 9320, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:moderation:report:handle', 2, 1, 1, NOW()),
-       (9330, '采集源', 9300, 2, '/guardfind/collect-source', 'GuardFindCollectSource', 'guardfind/collect/source/index', NULL, 'cloud-download', b'0', b'0', b'0', NULL, 3, 1, 1, NOW()),
+       (9330, '采集源', 9300, 2, '/guardfind/collect-source', 'GuardFindCollectSource', 'guardfind/collect/source/index', NULL, 'cloud-download', b'0', b'0', b'1', NULL, 3, 1, 1, NOW()),
        (9331, '列表', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:list', 1, 1, 1, NOW()),
        (9332, '详情', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:get', 2, 1, 1, NOW()),
        (9333, '新增', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:create', 3, 1, 1, NOW()),
        (9334, '修改', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:update', 4, 1, 1, NOW()),
        (9335, '删除', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:delete', 5, 1, 1, NOW()),
        (9336, '执行采集', 9330, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:source:run', 6, 1, 1, NOW()),
-       (9340, '采集候选', 9300, 2, '/guardfind/collect-candidate', 'GuardFindCollectCandidate', 'guardfind/collect/candidate/index', NULL, 'database', b'0', b'0', b'0', NULL, 4, 1, 1, NOW()),
+       (9340, '采集候选', 9300, 2, '/guardfind/collect-candidate', 'GuardFindCollectCandidate', 'guardfind/collect/candidate/index', NULL, 'database', b'0', b'0', b'1', NULL, 4, 1, 1, NOW()),
        (9341, '列表', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:list', 1, 1, 1, NOW()),
        (9342, '详情', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:get', 2, 1, 1, NOW()),
        (9343, '审批入库', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:approve', 3, 1, 1, NOW()),
@@ -129,5 +129,23 @@ VALUES (9300, '寻亲治理', 0, 1, '/guardfind', 'GuardFind', 'Layout', '/guard
        (9345, '驳回', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:reject', 5, 1, 1, NOW()),
        (9346, '删除', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:delete', 6, 1, 1, NOW()),
        (9347, '撤回清除', 9340, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:candidate:erase', 7, 1, 1, NOW()),
-       (9350, '采集日志', 9300, 2, '/guardfind/collect-log', 'GuardFindCollectLog', 'guardfind/collect/log/index', NULL, 'file-text', b'0', b'0', b'0', NULL, 5, 1, 1, NOW()),
+       (9350, '采集日志', 9300, 2, '/guardfind/collect-log', 'GuardFindCollectLog', 'guardfind/collect/log/index', NULL, 'file-text', b'0', b'0', b'1', NULL, 5, 1, 1, NOW()),
        (9351, '列表', 9350, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:collect:log:list', 1, 1, 1, NOW());
+
+-- changeset guardfind:3
+-- comment 二期后台功能菜单：房源管理（上下架/管家）与用户沟通（后台私信）
+INSERT INTO `sys_menu`
+(`id`, `title`, `parent_id`, `type`, `path`, `name`, `component`, `redirect`, `icon`, `is_external`, `is_cache`, `is_hidden`, `permission`, `sort`, `status`, `create_user`, `create_time`)
+VALUES (9400, '运营管理', 0, 1, '/operation', 'Operation', 'Layout', '/operation/property', 'appstore', b'0', b'0', b'0', NULL, 10, 1, 1, NOW()),
+       (9410, '房源管理', 9400, 2, '/operation/property', 'OperationProperty', 'guardfind/property/index', NULL, 'home', b'0', b'0', b'0', NULL, 1, 1, 1, NOW()),
+       (9411, '列表', 9410, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:property:list', 1, 1, 1, NOW()),
+       (9412, '上下架', 9410, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:property:status', 2, 1, 1, NOW()),
+       (9413, '删除', 9410, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:property:delete', 3, 1, 1, NOW()),
+       (9414, '管家列表', 9410, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:property:manager:list', 4, 1, 1, NOW()),
+       (9415, '设置管家', 9410, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:property:manager:set', 5, 1, 1, NOW()),
+       (9420, '用户沟通', 9400, 2, '/operation/im', 'OperationIm', 'guardfind/im/index', NULL, 'message', b'0', b'0', b'0', NULL, 2, 1, 1, NOW()),
+       (9421, '列表', 9420, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:im:list', 1, 1, 1, NOW()),
+       (9422, '发送', 9420, 3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'system:im:send', 2, 1, 1, NOW())
+ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `component` = VALUES(`component`);
+-- 前端页面尚未实现的管理页暂隐(避免侧边栏白屏);页面落地后再放开
+UPDATE `sys_menu` SET `is_hidden` = b'1' WHERE `id` IN (9310, 9320, 9330, 9340, 9350);

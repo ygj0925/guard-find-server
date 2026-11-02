@@ -1177,3 +1177,17 @@ CREATE TABLE IF NOT EXISTS `gf_budget` (
 -- changeset guardfind:38
 ALTER TABLE `gf_app_user` ADD COLUMN `is_property_manager` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否房产管家（0：否；1：是）';
 
+
+-- changeset guardfind:39
+CREATE TABLE IF NOT EXISTS `gf_admin_message` (
+    `id`          bigint(20)    AUTO_INCREMENT        COMMENT 'ID',
+    `user_id`     bigint(20)    NOT NULL              COMMENT 'App 用户 ID',
+    `sender_type` varchar(10)   NOT NULL              COMMENT '发送方（ADMIN/USER）',
+    `admin_id`    bigint(20)    DEFAULT NULL          COMMENT '管理员 ID（sender_type=ADMIN 时）',
+    `admin_name`  varchar(64)   DEFAULT NULL          COMMENT '管理员昵称',
+    `content`     varchar(2000) NOT NULL              COMMENT '消息内容',
+    `is_read`     tinyint(4)    NOT NULL DEFAULT 0    COMMENT '接收方是否已读（0：否；1：是）',
+    `create_time` datetime      NOT NULL              COMMENT '发送时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_time`(`user_id`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台与用户私信表';
