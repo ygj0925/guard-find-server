@@ -1155,3 +1155,21 @@ CREATE TABLE IF NOT EXISTS `gf_im_message` (
     INDEX `idx_conv_time`(`conversation_id`, `id`),
     INDEX `idx_sender`(`sender_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='IM 消息表';
+
+-- changeset guardfind:36
+CREATE TABLE IF NOT EXISTS `gf_budget` (
+    `id`             bigint(20)    AUTO_INCREMENT            COMMENT 'ID',
+    `user_id`        bigint(20)    NOT NULL                  COMMENT '所属用户 ID',
+    `period`         varchar(7)    NOT NULL                  COMMENT '预算周期（yyyy-MM）',
+    `category`       varchar(20)   NOT NULL DEFAULT 'total'  COMMENT '预算分类（total=总预算，或具体分类码）',
+    `budget_amount`  decimal(12,2) NOT NULL                  COMMENT '预算金额（元/月）',
+    `create_user`    bigint(20)    DEFAULT NULL              COMMENT '创建人',
+    `create_time`    datetime      NOT NULL                  COMMENT '创建时间',
+    `update_user`    bigint(20)    DEFAULT NULL              COMMENT '修改人',
+    `update_time`    datetime      DEFAULT NULL              COMMENT '修改时间',
+    `deleted`        bigint(20)    NOT NULL DEFAULT 0        COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_period_cat`(`user_id`, `period`, `category`, `deleted`),
+    INDEX `idx_user_period`(`user_id`, `period`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='记账预算表';
