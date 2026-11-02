@@ -56,4 +56,15 @@ public interface ImService {
      * 删除会话(仅自己视角隐藏,对方不受影响)
      */
     void delete(Long conversationId);
+
+    /**
+     * 联系客服:拉取我与官方客服的消息(可选 afterId 增量);拉取即把客服回复标已读。
+     * senderId 固定映射:自己的消息为本人 ID,客服消息为 0。
+     */
+    List<ImMessageResp> supportMessages(Long afterId);
+
+    /**
+     * 联系客服:发送消息给官方客服(管理员在后台"用户沟通"页接待)。
+     */
+    ImMessageResp sendSupport(String content);
 }

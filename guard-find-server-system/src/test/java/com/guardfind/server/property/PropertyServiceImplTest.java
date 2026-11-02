@@ -53,7 +53,7 @@ class PropertyServiceImplTest extends ContainerlessTestBase {
     void setUp() {
         propertyMapper = mock(PropertyMapper.class);
         appUserMapper = mock(AppUserMapper.class);
-        service = new PropertyServiceImpl(propertyMapper, appUserMapper);
+        service = new PropertyServiceImpl(propertyMapper, appUserMapper, mock(com.guardfind.server.property.service.PropertyInteractionService.class));
     }
 
     private PropertyDO property(Long id, Long userId, int status) {

@@ -96,5 +96,19 @@ public class ImController {
         imService.delete(id);
     }
 
+    @Operation(summary = "联系客服-拉取消息", description = "我与官方客服的消息,afterId 增量;客服消息 senderId=0")
+    @Parameter(name = "afterId", description = "此 ID 之后的消息,增量拉取")
+    @GetMapping("/support/messages")
+    public List<ImMessageResp> supportMessages(@RequestParam(required = false) Long afterId) {
+        return imService.supportMessages(afterId);
+    }
+
+    @Operation(summary = "联系客服-发送消息", description = "发送给官方客服,管理员在后台接待")
+    @RateLimiter(name = "APP:IM:SUPPORT", rate = 30, interval = 1, unit = TimeUnit.MINUTES, type = LimitType.IP)
+    @PostMapping("/support/message")
+    public ImMessageResp sendSupport(@RequestBody @Valid SendMsgReq req) {
+        return imService.sendSupport(req.content());
+    }
+
     public record SendMsgReq(@NotBlank(message = "消息内容不能为空") String content) {}
 }

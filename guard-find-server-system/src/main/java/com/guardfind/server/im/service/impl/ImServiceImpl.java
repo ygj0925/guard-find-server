@@ -22,8 +22,10 @@ import com.guardfind.server.app.context.AppUserContextHolder;
 import com.guardfind.server.app.exception.AppBizException;
 import com.guardfind.server.app.mapper.AppUserMapper;
 import com.guardfind.server.app.model.entity.AppUserDO;
+import com.guardfind.server.im.mapper.AdminMessageMapper;
 import com.guardfind.server.im.mapper.ImConversationMapper;
 import com.guardfind.server.im.mapper.ImMessageMapper;
+import com.guardfind.server.im.model.entity.AdminMessageDO;
 import com.guardfind.server.im.model.entity.ImConversationDO;
 import com.guardfind.server.im.model.entity.ImMessageDO;
 import com.guardfind.server.im.model.resp.ImConversationResp;
@@ -58,6 +60,7 @@ public class ImServiceImpl implements ImService {
     private final ImMessageMapper messageMapper;
     private final AppUserMapper appUserMapper;
     private final AppMessageService messageService;
+    private final AdminMessageMapper adminMessageMapper;
     /** 延迟获取 WS Handler,避免与 ImService 的循环依赖 */
     private final ObjectProvider<ImWebSocketHandler> wsHandlerProvider;
 
@@ -211,6 +214,55 @@ public class ImServiceImpl implements ImService {
             .eq("id", conversationId)
             .set(iAmA ? "unread_a" : "unread_b", 0)
             .set("last_message", ""));
+    }
+
+    @Override
+    public List<ImMessageResp> supportMessages(Long afterId) {
+        Long userId = AppUserContextHolder.getUserIdRequired();
+        List<AdminMessageDO> msgs = adminMessageMapper.selectList(Wrappers.<AdminMessageDO>lambdaQuery()
+            .eq(AdminMessageDO::getUserId, userId)
+            .gt(afterId != null && afterId > 0, AdminMessageDO::getId, afterId)
+            .orderByAsc(AdminMessageDO::getId));
+        // 拉取即把客服回复标已读
+        adminMessageMapper.update(null, Wrappers.<AdminMessageDO>update()
+            .eq("user_id", userId)
+            .eq("sender_type", "ADMIN")
+            .eq("is_read", 0)
+            .set("is_read", 1));
+        return msgs.stream().map(m -> {
+            ImMessageResp resp = new ImMessageResp();
+            resp.setId(m.getId());
+            // 客服消息 senderId 固定 0,App 端据此前后区分气泡
+            resp.setSenderId("USER".equals(m.getSenderType()) ? userId : 0L);
+            resp.setContent(m.getContent());
+            resp.setCreateTime(m.getCreateTime());
+            return resp;
+        }).toList();
+    }
+
+    @Override
+    public ImMessageResp sendSupport(String content) {
+        Long userId = AppUserContextHolder.getUserIdRequired();
+        if (StrUtil.isBlank(content)) {
+            throw new BusinessException("消息内容不能为空");
+        }
+        String trimmed = StrUtil.trim(content);
+        if (trimmed.length() > 2000) {
+            throw new BusinessException("消息不能超过 2000 个字符");
+        }
+        AdminMessageDO msg = new AdminMessageDO();
+        msg.setUserId(userId);
+        msg.setSenderType("USER");
+        msg.setContent(trimmed);
+        msg.setIsRead(0);
+        msg.setCreateTime(LocalDateTime.now());
+        adminMessageMapper.insert(msg);
+        ImMessageResp resp = new ImMessageResp();
+        resp.setId(msg.getId());
+        resp.setSenderId(userId);
+        resp.setContent(trimmed);
+        resp.setCreateTime(msg.getCreateTime());
+        return resp;
     }
 
     private ImConversationDO requireMembership(Long conversationId, Long userId) {

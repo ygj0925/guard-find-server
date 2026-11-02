@@ -1191,3 +1191,44 @@ CREATE TABLE IF NOT EXISTS `gf_admin_message` (
     PRIMARY KEY (`id`),
     INDEX `idx_user_time`(`user_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='后台与用户私信表';
+
+-- changeset guardfind:40
+CREATE TABLE IF NOT EXISTS `gf_property_favorite` (
+    `id`           bigint(20) AUTO_INCREMENT   COMMENT 'ID',
+    `user_id`      bigint(20)  NOT NULL        COMMENT '收藏用户 ID',
+    `property_id`  bigint(20)  NOT NULL        COMMENT '房源 ID',
+    `create_time`  datetime    NOT NULL        COMMENT '收藏时间',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_property`(`user_id`, `property_id`),
+    INDEX `idx_user_time`(`user_id`, `create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房源收藏表';
+
+-- changeset guardfind:41
+CREATE TABLE IF NOT EXISTS `gf_property_view_history` (
+    `id`           bigint(20) AUTO_INCREMENT   COMMENT 'ID',
+    `user_id`      bigint(20)  NOT NULL        COMMENT '浏览用户 ID',
+    `property_id`  bigint(20)  NOT NULL        COMMENT '房源 ID',
+    `view_time`    datetime    NOT NULL        COMMENT '最近浏览时间',
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_user_property`(`user_id`, `property_id`),
+    INDEX `idx_user_time`(`user_id`, `view_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房源浏览历史表';
+
+-- changeset guardfind:42
+CREATE TABLE IF NOT EXISTS `gf_property_booking` (
+    `id`            bigint(20)   AUTO_INCREMENT      COMMENT 'ID',
+    `property_id`   bigint(20)   NOT NULL            COMMENT '房源 ID',
+    `user_id`       bigint(20)   NOT NULL            COMMENT '预约人用户 ID',
+    `owner_id`      bigint(20)   NOT NULL            COMMENT '房东用户 ID',
+    `booking_time`  datetime     NOT NULL            COMMENT '预约看房时间',
+    `contact_name`  varchar(50)  DEFAULT NULL        COMMENT '联系人',
+    `contact_phone` varchar(20)  DEFAULT NULL        COMMENT '联系电话',
+    `remark`        varchar(500) DEFAULT NULL        COMMENT '备注',
+    `status`        tinyint(4)   NOT NULL DEFAULT 1  COMMENT '状态（1：待确认；2：已确认；3：已拒绝；4：已取消）',
+    `create_time`   datetime     NOT NULL            COMMENT '创建时间',
+    `update_time`   datetime     DEFAULT NULL        COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_status`(`user_id`, `status`),
+    INDEX `idx_owner_status`(`owner_id`, `status`),
+    INDEX `idx_property`(`property_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房源预约看房表';

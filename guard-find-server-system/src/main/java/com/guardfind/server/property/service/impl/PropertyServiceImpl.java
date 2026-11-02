@@ -21,13 +21,16 @@ import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.guardfind.server.app.mapper.AppUserMapper;
+import com.guardfind.server.app.context.AppUserContextHolder;
 import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.property.mapper.PropertyMapper;
 import com.guardfind.server.property.model.entity.PropertyDO;
 import com.guardfind.server.property.model.req.PropertyReq;
 import com.guardfind.server.property.model.resp.PropertyManagerResp;
 import com.guardfind.server.property.model.resp.PropertyResp;
+import com.guardfind.server.property.service.PropertyInteractionService;
 import com.guardfind.server.property.service.PropertyService;
+import com.guardfind.server.property.support.PropertyRespAssembler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import top.continew.starter.core.exception.BusinessException;
@@ -48,6 +51,7 @@ public class PropertyServiceImpl implements PropertyService {
 
     private final PropertyMapper propertyMapper;
     private final AppUserMapper appUserMapper;
+    private final PropertyInteractionService interactionService;
 
     @Override
     public Long create(Long userId, PropertyReq req) {
@@ -94,6 +98,12 @@ public class PropertyServiceImpl implements PropertyService {
         AppUserDO owner = appUserMapper.selectById(property.getUserId());
         if (owner != null) {
             fillOwner(resp, owner);
+        }
+        // 登录用户:记录浏览历史 + 回填收藏状态(匿名浏览只计数)
+        Long viewerId = AppUserContextHolder.getUserId();
+        if (viewerId != null) {
+            interactionService.recordView(viewerId, id);
+            resp.setIsFavorited(interactionService.isFavorited(viewerId, id));
         }
         return resp;
     }
@@ -245,34 +255,7 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     private PropertyResp toResp(PropertyDO property) {
-        PropertyResp resp = new PropertyResp();
-        resp.setId(property.getId());
-        resp.setUserId(property.getUserId());
-        resp.setTitle(property.getTitle());
-        resp.setDescription(property.getDescription());
-        resp.setPropertyType(property.getPropertyType());
-        resp.setLayout(property.getLayout());
-        resp.setAreaSqm(property.getAreaSqm());
-        resp.setFloorInfo(property.getFloorInfo());
-        resp.setOrientation(property.getOrientation());
-        resp.setDecoration(property.getDecoration());
-        resp.setPrice(property.getPrice());
-        resp.setPriceType(property.getPriceType());
-        resp.setAddress(property.getAddress());
-        resp.setDistrict(property.getDistrict());
-        resp.setCity(property.getCity());
-        resp.setFacilities(StrUtil.isBlank(property.getFacilities())
-            ? List.of()
-            : JSONUtil.toList(property.getFacilities(), String.class));
-        resp.setContactName(property.getContactName());
-        resp.setContactPhone(property.getContactPhone());
-        resp.setStatus(property.getStatus());
-        resp.setViewCount(property.getViewCount());
-        resp.setImages(StrUtil.isBlank(property.getImages())
-            ? List.of()
-            : JSONUtil.toList(property.getImages(), String.class));
-        resp.setCreateTime(property.getCreateTime());
-        return resp;
+        return PropertyRespAssembler.toResp(property);
     }
 
     private int pageNum(PageQuery pageQuery) {

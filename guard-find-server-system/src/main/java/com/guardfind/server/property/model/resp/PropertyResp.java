@@ -56,6 +56,8 @@ public class PropertyResp implements Serializable {
     private String contactPhone;
     private Integer status;
     private Integer viewCount;
+    /** 当前登录用户是否已收藏(仅详情接口回填;未登录为 null) */
+    private Boolean isFavorited;
     private List<String> images;
     private LocalDateTime createTime;
 }
