@@ -1086,3 +1086,38 @@ CREATE TABLE IF NOT EXISTS `gf_pet_log` (
     INDEX `idx_pet_type`(`pet_id`, `log_type`),
     INDEX `idx_deleted`(`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='宠物成长日志表';
+
+-- changeset guardfind:34
+CREATE TABLE IF NOT EXISTS `gf_property` (
+    `id`            bigint(20)    AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`       bigint(20)    NOT NULL                   COMMENT '房东用户 ID',
+    `title`         varchar(100)  NOT NULL                   COMMENT '房源标题',
+    `description`   varchar(2000) DEFAULT NULL               COMMENT '房源描述',
+    `property_type` varchar(20)   NOT NULL DEFAULT 'house'   COMMENT '类型（house/apartment/villa/shop）',
+    `layout`        varchar(30)   DEFAULT NULL               COMMENT '户型（如 2室1厅1卫）',
+    `area_sqm`      decimal(8,2)  DEFAULT NULL               COMMENT '面积(㎡)',
+    `floor_info`    varchar(20)   DEFAULT NULL               COMMENT '楼层信息（如 5/18）',
+    `orientation`   varchar(20)   DEFAULT NULL               COMMENT '朝向（南/北/东南…）',
+    `decoration`    varchar(20)   DEFAULT NULL               COMMENT '装修（毛坯/简装/精装/豪装）',
+    `price`         decimal(12,2) NOT NULL                   COMMENT '价格（元/月或元）',
+    `price_type`    varchar(10)   NOT NULL DEFAULT 'rent'    COMMENT '价格类型（rent=租金/sale=售价）',
+    `address`       varchar(200)  NOT NULL                   COMMENT '详细地址',
+    `district`      varchar(50)   DEFAULT NULL               COMMENT '区域/商圈',
+    `city`          varchar(50)   DEFAULT NULL               COMMENT '城市',
+    `facilities`    varchar(500)  DEFAULT NULL               COMMENT '设施 JSON 数组',
+    `contact_name`  varchar(50)   DEFAULT NULL               COMMENT '联系人',
+    `contact_phone` varchar(20)   DEFAULT NULL               COMMENT '联系电话',
+    `status`        tinyint(4)    NOT NULL DEFAULT 1         COMMENT '状态（1：草稿；2：已上架；3：已下架）',
+    `view_count`    int(11)       NOT NULL DEFAULT 0         COMMENT '浏览次数',
+    `images`        varchar(2000) DEFAULT NULL               COMMENT '图片 URL JSON 数组（最多 9 张）',
+    `create_user`   bigint(20)    DEFAULT NULL               COMMENT '创建人',
+    `create_time`   datetime      NOT NULL                   COMMENT '创建时间',
+    `update_user`   bigint(20)    DEFAULT NULL               COMMENT '修改人',
+    `update_time`   datetime      DEFAULT NULL               COMMENT '修改时间',
+    `deleted`       bigint(20)    NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_status`(`user_id`, `status`),
+    INDEX `idx_status_time`(`status`, `create_time`),
+    INDEX `idx_city`(`city`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='房产房源表';
