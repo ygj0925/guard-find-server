@@ -103,7 +103,9 @@ public class PropertyServiceImpl implements PropertyService {
             throw new BusinessException("房源不存在或未上架");
         }
         // 浏览计数自增
-        propertyMapper.update(null, Wrappers.<PropertyDO>update().eq("id", id).setSql("view_count = COALESCE(view_count, 0) + 1"));
+        propertyMapper.update(null, Wrappers.<PropertyDO>update()
+            .eq("id", id)
+            .setSql("view_count = COALESCE(view_count, 0) + 1"));
         property.setViewCount((property.getViewCount() == null ? 0 : property.getViewCount()) + 1);
         PropertyResp resp = toResp(property);
         AppUserDO owner = appUserMapper.selectById(property.getUserId());
@@ -233,9 +235,11 @@ public class PropertyServiceImpl implements PropertyService {
             : null);
         property.setContactName(StrUtil.trimToNull(req.getContactName()));
         property.setContactPhone(StrUtil.trimToNull(req.getContactPhone()));
-        if (req.getImages() != null && req.getImages().size() > 9) throw new BusinessException("图片最多 9 张");
+        if (req.getImages() != null && req.getImages().size() > 9)
+            throw new BusinessException("图片最多 9 张");
         property.setImages(JSONUtil.toJsonStr(req.getImages() == null ? List.of() : req.getImages()));
-        if (req.getStatus() == null || req.getStatus() < 1 || req.getStatus() > 3) throw new BusinessException("状态取值不合法");
+        if (req.getStatus() == null || req.getStatus() < 1 || req.getStatus() > 3)
+            throw new BusinessException("状态取值不合法");
         property.setStatus(req.getStatus());
     }
 

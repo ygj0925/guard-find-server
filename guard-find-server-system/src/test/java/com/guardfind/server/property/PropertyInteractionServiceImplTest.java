@@ -67,7 +67,8 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
 
     @BeforeEach
     void setUp() {
-        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "test"), PropertyBookingDO.class);
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper
+            .initTableInfo(new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "test"), PropertyBookingDO.class);
         propertyMapper = mock(PropertyMapper.class);
         favoriteMapper = mock(PropertyFavoriteMapper.class);
         viewHistoryMapper = mock(PropertyViewHistoryMapper.class);

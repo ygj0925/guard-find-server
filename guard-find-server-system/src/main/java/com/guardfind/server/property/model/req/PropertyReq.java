@@ -56,7 +56,8 @@ public class PropertyReq implements Serializable {
 
     @Schema(description = "面积(㎡)")
     @DecimalMin(value = "1", message = "面积必须大于 0")
-    @DecimalMax("999999.99") @Digits(integer = 6, fraction = 2)
+    @DecimalMax("999999.99")
+    @Digits(integer = 6, fraction = 2)
     private BigDecimal areaSqm;
 
     @Schema(description = "楼层信息", example = "5/18")
@@ -74,7 +75,8 @@ public class PropertyReq implements Serializable {
     @Schema(description = "价格(元)")
     @NotNull(message = "价格不能为空")
     @DecimalMin(value = "1", message = "价格必须大于 0")
-    @DecimalMax("9999999999.99") @Digits(integer = 10, fraction = 2)
+    @DecimalMax("9999999999.99")
+    @Digits(integer = 10, fraction = 2)
     private BigDecimal price;
 
     @Schema(description = "价格类型(rent=租金/sale=售价)")
@@ -82,11 +84,13 @@ public class PropertyReq implements Serializable {
     @Pattern(regexp = "^(rent|sale)$", message = "价格类型取值不合法")
     private String priceType;
 
-    @Length(max = 100) private String community;
+    @Length(max = 100)
+    private String community;
     private java.time.LocalDate availableFrom;
     @Pattern(regexp = "^(whole|shared)$", message = "租赁方式取值不合法")
     private String rentalMode;
-    @NotBlank(message = "地址不能为空") @Length(max = 200)
+    @NotBlank(message = "地址不能为空")
+    @Length(max = 200)
     private String address;
 
     @Schema(description = "区域")
@@ -115,6 +119,7 @@ public class PropertyReq implements Serializable {
 
     @Schema(description = "状态(1 草稿 / 2 已上架 / 3 已下架)", example = "1")
     @NotNull(message = "状态不能为空")
-    @Min(1) @Max(3)
+    @Min(1)
+    @Max(3)
     private Integer status;
 }

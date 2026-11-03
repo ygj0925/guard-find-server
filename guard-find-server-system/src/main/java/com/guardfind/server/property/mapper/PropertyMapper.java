@@ -22,8 +22,12 @@ import top.continew.starter.data.mapper.BaseMapper;
 public interface PropertyMapper extends BaseMapper<PropertyDO> {
     @org.apache.ibatis.annotations.Select("SELECT * FROM gf_property WHERE id = #{id} AND deleted = 0 FOR UPDATE")
     PropertyDO lockById(@org.apache.ibatis.annotations.Param("id") Long id);
+
     @org.apache.ibatis.annotations.Select("SELECT p.* FROM gf_property p JOIN gf_property_favorite f ON f.property_id=p.id WHERE f.user_id=#{userId} AND p.deleted=0 AND p.status=2 ORDER BY f.create_time DESC, f.id DESC")
-    com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> favoritePage(com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> page, @org.apache.ibatis.annotations.Param("userId") Long userId);
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> favoritePage(com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> page,
+                                                                                        @org.apache.ibatis.annotations.Param("userId") Long userId);
+
     @org.apache.ibatis.annotations.Select("SELECT p.* FROM gf_property p JOIN gf_property_view_history h ON h.property_id=p.id WHERE h.user_id=#{userId} AND p.deleted=0 AND p.status=2 ORDER BY h.view_time DESC, h.id DESC")
-    com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> historyPage(com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> page, @org.apache.ibatis.annotations.Param("userId") Long userId);
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> historyPage(com.baomidou.mybatisplus.extension.plugins.pagination.Page<PropertyDO> page,
+                                                                                       @org.apache.ibatis.annotations.Param("userId") Long userId);
 }
