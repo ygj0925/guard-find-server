@@ -38,6 +38,8 @@ import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
 
 import java.util.List;
+import java.util.Objects;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -76,7 +78,8 @@ public class PropertyServiceImpl implements PropertyService {
             .eq(StrUtil.isNotBlank(city), PropertyDO::getCity, city)
             .eq(StrUtil.isNotBlank(propertyType), PropertyDO::getPropertyType, propertyType)
             .eq(StrUtil.isNotBlank(priceType), PropertyDO::getPriceType, priceType)
-            .orderByDesc(PropertyDO::getCreateTime));
+            .eq(StrUtil.isNotBlank(rentalMode), PropertyDO::getRentalMode, rentalMode)
+            .orderByDesc(PropertyDO::getCreateTime, PropertyDO::getId));
         return toPage(page);
     }
 
@@ -85,7 +88,7 @@ public class PropertyServiceImpl implements PropertyService {
         Page<PropertyDO> page = propertyMapper.selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
             .<PropertyDO>lambdaQuery()
             .eq(PropertyDO::getUserId, userId)
-            .orderByDesc(PropertyDO::getCreateTime));
+            .orderByDesc(PropertyDO::getCreateTime, PropertyDO::getId));
         return toPage(page);
     }
 
@@ -95,9 +98,13 @@ public class PropertyServiceImpl implements PropertyService {
         if (property == null) {
             throw new BusinessException("房源不存在");
         }
+        Long viewer = AppUserContextHolder.getUserId();
+        if (!Integer.valueOf(2).equals(property.getStatus()) && !Objects.equals(viewer, property.getUserId())) {
+            throw new BusinessException("房源不存在或未上架");
+        }
         // 浏览计数自增
-        propertyMapper.update(null, Wrappers.<PropertyDO>update().eq("id", id).setSql("view_count = view_count + 1"));
-        property.setViewCount(property.getViewCount() + 1);
+        propertyMapper.update(null, Wrappers.<PropertyDO>update().eq("id", id).setSql("view_count = COALESCE(view_count, 0) + 1"));
+        property.setViewCount((property.getViewCount() == null ? 0 : property.getViewCount()) + 1);
         PropertyResp resp = toResp(property);
         AppUserDO owner = appUserMapper.selectById(property.getUserId());
         if (owner != null) {
@@ -113,6 +120,7 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(Long id, Long userId, PropertyReq req) {
         PropertyDO property = getOwned(id, userId);
         applyReq(property, req);
@@ -120,12 +128,15 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id, Long userId) {
         PropertyDO property = getOwned(id, userId);
+        interactionService.cleanupForDelete(id);
         propertyMapper.deleteById(property.getId());
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatus(Long id, Long userId, Integer status) {
         PropertyDO property = getOwned(id, userId);
         if (status == null || status < 1 || status > 3) {
@@ -142,16 +153,17 @@ public class PropertyServiceImpl implements PropertyService {
             .eq(status != null && status > 0, PropertyDO::getStatus, status)
             .eq(StrUtil.isNotBlank(city), PropertyDO::getCity, city)
             .eq(StrUtil.isNotBlank(priceType), PropertyDO::getPriceType, priceType)
-            .orderByDesc(PropertyDO::getCreateTime));
+            .orderByDesc(PropertyDO::getCreateTime, PropertyDO::getId));
         return toPage(page);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateStatusForAdmin(Long id, Integer status) {
         if (status == null || status < 1 || status > 3) {
             throw new BusinessException("状态取值不合法");
         }
-        PropertyDO property = propertyMapper.selectById(id);
+        PropertyDO property = propertyMapper.lockById(id);
         if (property == null) {
             throw new BusinessException("房源不存在");
         }
@@ -160,10 +172,12 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteForAdmin(Long id) {
-        if (propertyMapper.selectById(id) == null) {
+        if (propertyMapper.lockById(id) == null) {
             throw new BusinessException("房源不存在");
         }
+        interactionService.cleanupForDelete(id);
         propertyMapper.deleteById(id);
     }
 
@@ -210,7 +224,7 @@ public class PropertyServiceImpl implements PropertyService {
         property.setPriceType(req.getPriceType());
         property.setCommunity(StrUtil.trimToNull(req.getCommunity()));
         property.setAvailableFrom(req.getAvailableFrom());
-        property.setRentalMode(StrUtil.trimToNull(req.getRentalMode()));
+        property.setRentalMode("rent".equals(req.getPriceType()) ? StrUtil.trimToNull(req.getRentalMode()) : null);
         property.setAddress(StrUtil.trim(req.getAddress()));
         property.setDistrict(StrUtil.trimToNull(req.getDistrict()));
         property.setCity(StrUtil.trimToNull(req.getCity()));
@@ -219,15 +233,14 @@ public class PropertyServiceImpl implements PropertyService {
             : null);
         property.setContactName(StrUtil.trimToNull(req.getContactName()));
         property.setContactPhone(StrUtil.trimToNull(req.getContactPhone()));
-        if (req.getImages() != null && !req.getImages().isEmpty()) {
-            if (req.getImages().size() > 9)
-                throw new BusinessException("图片最多 9 张");
-            property.setImages(JSONUtil.toJsonStr(req.getImages()));
-        }
+        if (req.getImages() != null && req.getImages().size() > 9) throw new BusinessException("图片最多 9 张");
+        property.setImages(JSONUtil.toJsonStr(req.getImages() == null ? List.of() : req.getImages()));
+        if (req.getStatus() == null || req.getStatus() < 1 || req.getStatus() > 3) throw new BusinessException("状态取值不合法");
+        property.setStatus(req.getStatus());
     }
 
     private PropertyDO getOwned(Long id, Long userId) {
-        PropertyDO property = propertyMapper.selectById(id);
+        PropertyDO property = propertyMapper.lockById(id);
         if (property == null || !property.getUserId().equals(userId)) {
             throw new BusinessException("房源不存在");
         }
@@ -266,10 +279,10 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     private int pageNum(PageQuery pageQuery) {
-        return pageQuery == null || pageQuery.getPage() == null ? 1 : pageQuery.getPage();
+        return pageQuery == null || pageQuery.getPage() == null ? 1 : Math.max(1, pageQuery.getPage());
     }
 
     private int pageSize(PageQuery pageQuery) {
-        return pageQuery == null || pageQuery.getSize() == null ? 10 : pageQuery.getSize();
+        return pageQuery == null || pageQuery.getSize() == null ? 10 : Math.max(1, Math.min(100, pageQuery.getSize()));
     }
 }

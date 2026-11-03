@@ -66,4 +66,5 @@ public interface PropertyInteractionService {
      * 预约状态流转:guest 可取消(4);owner 可确认(2)/拒绝(3)。
      */
     void updateBookingStatus(Long userId, Long bookingId, Integer status);
+    void cleanupForDelete(Long propertyId);
 }

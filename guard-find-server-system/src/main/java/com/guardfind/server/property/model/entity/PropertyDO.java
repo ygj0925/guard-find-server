@@ -17,6 +17,8 @@
 package com.guardfind.server.property.model.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.guardfind.server.common.base.model.entity.BaseDO;
 import lombok.Data;
 
@@ -38,26 +40,41 @@ public class PropertyDO extends BaseDO {
 
     private Long userId;
     private String title;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String description;
     private String propertyType;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String layout;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private BigDecimal areaSqm;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String floorInfo;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String orientation;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String decoration;
     private BigDecimal price;
     private String priceType;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String community;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private java.time.LocalDate availableFrom;
     /** 租赁方式(whole=整租/shared=合租;仅出租) */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String rentalMode;
     private String address;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String district;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String city;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String facilities;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String contactName;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String contactPhone;
     private Integer status;
     private Integer viewCount;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String images;
 }

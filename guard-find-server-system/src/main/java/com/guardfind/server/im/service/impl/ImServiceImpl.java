@@ -185,9 +185,7 @@ public class ImServiceImpl implements ImService {
     @Override
     public void markRead(Long conversationId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        ImConversationDO conv = conversationMapper.selectById(conversationId);
-        if (conv == null)
-            return;
+        ImConversationDO conv = requireMembership(conversationId, userId);
         boolean iAmA = Objects.equals(conv.getUserAId(), userId);
         int unread = iAmA ? conv.getUnreadA() : conv.getUnreadB();
         if (unread <= 0)
@@ -212,8 +210,7 @@ public class ImServiceImpl implements ImService {
         boolean iAmA = Objects.equals(conv.getUserAId(), userId);
         conversationMapper.update(null, Wrappers.<ImConversationDO>update()
             .eq("id", conversationId)
-            .set(iAmA ? "unread_a" : "unread_b", 0)
-            .set("last_message", ""));
+            .set(iAmA ? "unread_a" : "unread_b", 0));
     }
 
     @Override

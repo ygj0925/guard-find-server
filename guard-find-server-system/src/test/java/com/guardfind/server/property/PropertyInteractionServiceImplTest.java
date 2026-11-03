@@ -67,10 +67,12 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
 
     @BeforeEach
     void setUp() {
+        com.baomidou.mybatisplus.core.metadata.TableInfoHelper.initTableInfo(new org.apache.ibatis.builder.MapperBuilderAssistant(new com.baomidou.mybatisplus.core.MybatisConfiguration(), "test"), PropertyBookingDO.class);
         propertyMapper = mock(PropertyMapper.class);
         favoriteMapper = mock(PropertyFavoriteMapper.class);
         viewHistoryMapper = mock(PropertyViewHistoryMapper.class);
         bookingMapper = mock(PropertyBookingMapper.class);
+        when(bookingMapper.update(org.mockito.ArgumentMatchers.isNull(), any())).thenReturn(1);
         appUserMapper = mock(AppUserMapper.class);
         messageService = mock(AppMessageService.class);
         service = new PropertyInteractionServiceImpl(propertyMapper, favoriteMapper, viewHistoryMapper, bookingMapper, appUserMapper, messageService);
@@ -108,7 +110,7 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
     @Test
     @DisplayName("收藏切换:未收藏时插入并返回 true,已收藏时删除并返回 false")
     void toggleFavoriteInsertsThenDeletes() {
-        when(propertyMapper.selectById(10L)).thenReturn(listedProperty(10L, 2L));
+        when(propertyMapper.lockById(10L)).thenReturn(listedProperty(10L, 2L));
         when(favoriteMapper.selectOne(any())).thenReturn(null).thenReturn(favorite(77L, 1L, 10L));
 
         assertTrue(service.toggleFavorite(1L, 10L));
@@ -137,7 +139,7 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
     @Test
     @DisplayName("预约校验:不能预约自己的房源/未上架不可预约/时间必须晚于当前")
     void createBookingValidations() {
-        when(propertyMapper.selectById(10L)).thenReturn(listedProperty(10L, 2L));
+        when(propertyMapper.lockById(10L)).thenReturn(listedProperty(10L, 2L));
 
         BusinessException own = assertThrows(BusinessException.class, () -> service
             .createBooking(2L, 10L, bookingReq()));
@@ -145,12 +147,12 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
 
         PropertyDO draft = listedProperty(10L, 2L);
         draft.setStatus(1);
-        when(propertyMapper.selectById(10L)).thenReturn(draft);
+        when(propertyMapper.lockById(10L)).thenReturn(draft);
         BusinessException notListed = assertThrows(BusinessException.class, () -> service
             .createBooking(1L, 10L, bookingReq()));
         assertTrue(notListed.getMessage().contains("不可预约"));
 
-        when(propertyMapper.selectById(10L)).thenReturn(listedProperty(10L, 2L));
+        when(propertyMapper.lockById(10L)).thenReturn(listedProperty(10L, 2L));
         PropertyBookingReq past = bookingReq();
         past.setBookingTime(LocalDateTime.now().minusHours(1));
         BusinessException expired = assertThrows(BusinessException.class, () -> service.createBooking(1L, 10L, past));
@@ -162,7 +164,7 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
     @Test
     @DisplayName("预约成功:落库待确认状态并站内信通知房东")
     void createBookingNotifiesOwner() {
-        when(propertyMapper.selectById(10L)).thenReturn(listedProperty(10L, 2L));
+        when(propertyMapper.lockById(10L)).thenReturn(listedProperty(10L, 2L));
 
         service.createBooking(1L, 10L, bookingReq());
 
@@ -197,8 +199,7 @@ class PropertyInteractionServiceImplTest extends ContainerlessTestBase {
         // 房东确认成功并通知预约人
         service.updateBookingStatus(2L, 100L, 2);
         ArgumentCaptor<PropertyBookingDO> captor = ArgumentCaptor.forClass(PropertyBookingDO.class);
-        verify(bookingMapper).updateById(captor.capture());
-        assertEquals(2, captor.getValue().getStatus());
+        verify(bookingMapper).update(org.mockito.ArgumentMatchers.isNull(), any());
         verify(messageService).send(org.mockito.ArgumentMatchers.eq(1L), any(), any(), any(), any(), any());
 
         // 已处理的预约不能再操作

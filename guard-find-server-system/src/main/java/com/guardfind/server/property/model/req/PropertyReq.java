@@ -17,7 +17,7 @@
 package com.guardfind.server.property.model.req;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -56,6 +56,7 @@ public class PropertyReq implements Serializable {
 
     @Schema(description = "面积(㎡)")
     @DecimalMin(value = "1", message = "面积必须大于 0")
+    @DecimalMax("999999.99") @Digits(integer = 6, fraction = 2)
     private BigDecimal areaSqm;
 
     @Schema(description = "楼层信息", example = "5/18")
@@ -73,6 +74,7 @@ public class PropertyReq implements Serializable {
     @Schema(description = "价格(元)")
     @NotNull(message = "价格不能为空")
     @DecimalMin(value = "1", message = "价格必须大于 0")
+    @DecimalMax("9999999999.99") @Digits(integer = 10, fraction = 2)
     private BigDecimal price;
 
     @Schema(description = "价格类型(rent=租金/sale=售价)")
@@ -80,14 +82,11 @@ public class PropertyReq implements Serializable {
     @Pattern(regexp = "^(rent|sale)$", message = "价格类型取值不合法")
     private String priceType;
 
-    @Schema(description = "详细地址")
-    @NotBlank(message = "地址不能为空")
-    @Length(max = 200, message = "地址不能超过 {max} 个字符")
-    private String community;
-    /** 可入住日期(yyyy-MM-dd) */
+    @Length(max = 100) private String community;
     private java.time.LocalDate availableFrom;
-    /** 租赁方式(whole=整租/shared=合租;仅出租) */
+    @Pattern(regexp = "^(whole|shared)$", message = "租赁方式取值不合法")
     private String rentalMode;
+    @NotBlank(message = "地址不能为空") @Length(max = 200)
     private String address;
 
     @Schema(description = "区域")
@@ -99,7 +98,8 @@ public class PropertyReq implements Serializable {
     private String city;
 
     @Schema(description = "设施列表")
-    private List<String> facilities;
+    @Size(max = 20)
+    private List<@NotBlank @Size(max = 20) String> facilities;
 
     @Schema(description = "联系人")
     @Length(max = 50, message = "联系人不能超过 {max} 个字符")
@@ -110,9 +110,11 @@ public class PropertyReq implements Serializable {
     private String contactPhone;
 
     @Schema(description = "图片 URL 列表(最多 9 张)")
-    private List<String> images;
+    @Size(max = 9)
+    private List<@NotBlank @Pattern(regexp = "^https?://[^\\s]+$", message = "图片必须为 HTTP(S) 地址") @Size(max = 1000) String> images;
 
     @Schema(description = "状态(1 草稿 / 2 已上架 / 3 已下架)", example = "1")
     @NotNull(message = "状态不能为空")
+    @Min(1) @Max(3)
     private Integer status;
 }

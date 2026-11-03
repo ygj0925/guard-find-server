@@ -53,6 +53,7 @@ class PropertyServiceImplTest extends ContainerlessTestBase {
     void setUp() {
         propertyMapper = mock(PropertyMapper.class);
         appUserMapper = mock(AppUserMapper.class);
+        when(propertyMapper.selectById(any())).thenAnswer(i -> propertyMapper.lockById((Long)i.getArgument(0)));
         service = new PropertyServiceImpl(propertyMapper, appUserMapper, mock(com.guardfind.server.property.service.PropertyInteractionService.class));
     }
 
@@ -99,7 +100,7 @@ class PropertyServiceImplTest extends ContainerlessTestBase {
     void updateRejectsNonOwner() {
         try (var ignored = mockStatic(AppUserContextHolder.class)) {
             when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
-            when(propertyMapper.selectById(5L)).thenReturn(property(5L, 99L, 2));
+            when(propertyMapper.lockById(5L)).thenReturn(property(5L, 99L, 2));
             assertThrows(BusinessException.class, () -> service.update(5L, 7L, req()));
             verify(propertyMapper, never()).updateById(any(PropertyDO.class));
         }
@@ -110,7 +111,7 @@ class PropertyServiceImplTest extends ContainerlessTestBase {
     void updateStatusOwnerOnly() {
         try (var ignored = mockStatic(AppUserContextHolder.class)) {
             when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
-            when(propertyMapper.selectById(5L)).thenReturn(property(5L, 7L, 2));
+            when(propertyMapper.lockById(5L)).thenReturn(property(5L, 7L, 2));
             service.updateStatus(5L, 7L, 3);
             ArgumentCaptor<PropertyDO> captor = ArgumentCaptor.forClass(PropertyDO.class);
             verify(propertyMapper).updateById(captor.capture());
@@ -123,7 +124,7 @@ class PropertyServiceImplTest extends ContainerlessTestBase {
     void deleteRejectsNonOwner() {
         try (var ignored = mockStatic(AppUserContextHolder.class)) {
             when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
-            when(propertyMapper.selectById(5L)).thenReturn(property(5L, 99L, 2));
+            when(propertyMapper.lockById(5L)).thenReturn(property(5L, 99L, 2));
             assertThrows(BusinessException.class, () -> service.delete(5L, 7L));
             verify(propertyMapper, never()).deleteById(any(Long.class));
         }

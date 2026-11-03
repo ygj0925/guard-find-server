@@ -45,6 +45,7 @@ import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
 
 import java.time.LocalDateTime;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -75,8 +76,10 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
     private final AppMessageService messageService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean toggleFavorite(Long userId, Long propertyId) {
-        requireProperty(propertyId);
+        PropertyDO property = propertyMapper.lockById(propertyId);
+        if (property == null || !Integer.valueOf(2).equals(property.getStatus())) throw new BusinessException("房源不存在或未上架");
         PropertyFavoriteDO existing = favoriteMapper.selectOne(Wrappers.<PropertyFavoriteDO>lambdaQuery()
             .eq(PropertyFavoriteDO::getUserId, userId)
             .eq(PropertyFavoriteDO::getPropertyId, propertyId)
@@ -102,23 +105,15 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
 
     @Override
     public PageResp<PropertyResp> favorites(Long userId, PageQuery pageQuery) {
-        Page<PropertyFavoriteDO> page = favoriteMapper
-            .selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers.<PropertyFavoriteDO>lambdaQuery()
-                .eq(PropertyFavoriteDO::getUserId, userId)
-                .orderByDesc(PropertyFavoriteDO::getCreateTime));
-        return toPropertyPage(page.getRecords().stream().map(PropertyFavoriteDO::getPropertyId).toList(), page
-            .getTotal());
+        Page<PropertyDO> page = propertyMapper.favoritePage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), userId);
+        PageResp<PropertyResp> result = propertyPage(page);
+        result.getList().forEach(p -> p.setIsFavorited(true));
+        return result;
     }
 
     @Override
     public PageResp<PropertyResp> history(Long userId, PageQuery pageQuery) {
-        Page<PropertyViewHistoryDO> page = viewHistoryMapper
-            .selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers
-                .<PropertyViewHistoryDO>lambdaQuery()
-                .eq(PropertyViewHistoryDO::getUserId, userId)
-                .orderByDesc(PropertyViewHistoryDO::getViewTime));
-        return toPropertyPage(page.getRecords().stream().map(PropertyViewHistoryDO::getPropertyId).toList(), page
-            .getTotal());
+        return propertyPage(propertyMapper.historyPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), userId));
     }
 
     @Override
@@ -146,8 +141,10 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long createBooking(Long userId, Long propertyId, PropertyBookingReq req) {
-        PropertyDO property = requireProperty(propertyId);
+        PropertyDO property = propertyMapper.lockById(propertyId);
+        if (property == null) throw new BusinessException("房源不存在");
         if (Objects.equals(property.getUserId(), userId)) {
             throw new BusinessException("不能预约自己的房源");
         }
@@ -156,6 +153,9 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
         }
         if (req.getBookingTime().isBefore(LocalDateTime.now())) {
             throw new BusinessException("预约时间必须晚于当前时间");
+        }
+        if (bookingMapper.selectCount(Wrappers.<PropertyBookingDO>lambdaQuery().eq(PropertyBookingDO::getUserId, userId).eq(PropertyBookingDO::getPropertyId, propertyId).in(PropertyBookingDO::getStatus, 1, 2)) > 0) {
+            throw new BusinessException("已有待确认或已确认的预约，请勿重复提交");
         }
         PropertyBookingDO booking = new PropertyBookingDO();
         booking.setPropertyId(propertyId);
@@ -177,6 +177,7 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
 
     @Override
     public PageResp<PropertyBookingResp> bookings(Long userId, String role, PageQuery pageQuery) {
+        if (!"guest".equalsIgnoreCase(role) && !ROLE_OWNER.equalsIgnoreCase(role)) throw new BusinessException("预约角色取值不合法");
         boolean asOwner = ROLE_OWNER.equalsIgnoreCase(role);
         Page<PropertyBookingDO> page = bookingMapper
             .selectPage(new Page<>(pageNum(pageQuery), pageSize(pageQuery)), Wrappers.<PropertyBookingDO>lambdaQuery()
@@ -187,6 +188,7 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateBookingStatus(Long userId, Long bookingId, Integer status) {
         PropertyBookingDO booking = bookingMapper.selectById(bookingId);
         if (booking == null) {
@@ -215,15 +217,21 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
                 throw new BusinessException("该预约已处理");
             }
         }
-        booking.setStatus(status);
-        booking.setUpdateTime(LocalDateTime.now());
-        bookingMapper.updateById(booking);
+        int changed = bookingMapper.update(null, Wrappers.<PropertyBookingDO>lambdaUpdate().eq(PropertyBookingDO::getId, bookingId).eq(PropertyBookingDO::getStatus, booking.getStatus()).set(PropertyBookingDO::getStatus, status).set(PropertyBookingDO::getUpdateTime, LocalDateTime.now()));
+        if (changed != 1) throw new BusinessException("预约状态已变化，请刷新后重试");
 
         // 站内信通知对方
         Long notifyUserId = asOwner ? booking.getUserId() : booking.getOwnerId();
         String action = status == BOOKING_CONFIRMED ? "已确认" : status == BOOKING_REJECTED ? "已拒绝" : "已取消";
         messageService.send(notifyUserId, NotificationEventEnum.POST_COMMENTED, "PROPERTY_BOOKING", booking
             .getId(), "看房预约" + action, "你的看房预约" + action + ",点击查看详情");
+    }
+
+    @Override
+    public void cleanupForDelete(Long propertyId) {
+        if (bookingMapper.selectCount(Wrappers.<PropertyBookingDO>lambdaQuery().eq(PropertyBookingDO::getPropertyId, propertyId).in(PropertyBookingDO::getStatus, 1, 2)) > 0) throw new BusinessException("房源仍有待确认或已确认预约，请先处理预约");
+        favoriteMapper.delete(Wrappers.<PropertyFavoriteDO>lambdaQuery().eq(PropertyFavoriteDO::getPropertyId, propertyId));
+        viewHistoryMapper.delete(Wrappers.<PropertyViewHistoryDO>lambdaQuery().eq(PropertyViewHistoryDO::getPropertyId, propertyId));
     }
 
     private PropertyDO requireProperty(Long propertyId) {
@@ -234,22 +242,18 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
         return property;
     }
 
-    /** 按互动表 id 顺序装配房源(已删除/下架的房源自动跳过) */
-    private PageResp<PropertyResp> toPropertyPage(List<Long> propertyIds, long total) {
-        Map<Long, PropertyDO> properties = propertyIds.isEmpty()
-            ? Map.of()
-            : propertyMapper.selectByIds(propertyIds)
-                .stream()
-                .collect(Collectors.toMap(PropertyDO::getId, Function.identity()));
-        List<PropertyResp> list = propertyIds.stream()
-            .map(properties::get)
-            .filter(Objects::nonNull)
-            .map(PropertyRespAssembler::toResp)
-            .toList();
-        PageResp<PropertyResp> pageResp = new PageResp<>();
-        pageResp.setList(list);
-        pageResp.setTotal(total);
-        return pageResp;
+    private PageResp<PropertyResp> propertyPage(Page<PropertyDO> page) {
+        List<Long> ownerIds = page.getRecords().stream().map(PropertyDO::getUserId).distinct().toList();
+        Map<Long, AppUserDO> owners = ownerIds.isEmpty() ? Map.of() : appUserMapper.selectByIds(ownerIds).stream().collect(Collectors.toMap(AppUserDO::getId, Function.identity()));
+        var result = new PageResp<PropertyResp>();
+        result.setTotal(page.getTotal());
+        result.setList(page.getRecords().stream().map(p -> {
+            var resp = PropertyRespAssembler.toResp(p);
+            var owner = owners.get(p.getUserId());
+            if (owner != null) { resp.setOwnerNickname(owner.getNickname()); resp.setOwnerAvatar(owner.getAvatar()); resp.setOwnerIsManager(Integer.valueOf(1).equals(owner.getIsPropertyManager())); }
+            return resp;
+        }).toList());
+        return result;
     }
 
     private PageResp<PropertyBookingResp> toBookingPage(List<PropertyBookingDO> records, long total) {
@@ -303,10 +307,10 @@ public class PropertyInteractionServiceImpl implements PropertyInteractionServic
     }
 
     private int pageNum(PageQuery pageQuery) {
-        return pageQuery == null || pageQuery.getPage() == null ? 1 : pageQuery.getPage();
+        return pageQuery == null || pageQuery.getPage() == null ? 1 : Math.max(1, pageQuery.getPage());
     }
 
     private int pageSize(PageQuery pageQuery) {
-        return pageQuery == null || pageQuery.getSize() == null ? 10 : pageQuery.getSize();
+        return pageQuery == null || pageQuery.getSize() == null ? 10 : Math.max(1, Math.min(100, pageQuery.getSize()));
     }
 }
