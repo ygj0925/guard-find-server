@@ -16,7 +16,10 @@
 
 package com.guardfind.server.im.websocket;
 
+import com.guardfind.server.app.mapper.AppUserMapper;
+import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.app.util.StpAppUtil;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -28,12 +31,15 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.util.Map;
 
 /**
- * IM WebSocket 握手拦截器:验证 Sa-Token 并将 userId 写入 session attributes。
+ * IM WebSocket 握手拦截器:验证 Sa-Token 和账号状态，将 userId 与原始 token 绑定到 session。
  * 客户端连接 URL: ws://host/ws/im?token={saToken}
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ImHandshakeInterceptor implements HandshakeInterceptor {
+
+    private final AppUserMapper appUserMapper;
 
     @Override
     public boolean beforeHandshake(ServerHttpRequest request,
@@ -44,13 +50,15 @@ public class ImHandshakeInterceptor implements HandshakeInterceptor {
             String token = servletRequest.getServletRequest().getParameter("token");
             if (token != null && !token.isBlank()) {
                 try {
-                    Object loginId = StpAppUtil.stpLogic().getLoginIdByToken(token);
-                    if (loginId != null) {
-                        attributes.put("userId", Long.parseLong(loginId.toString()));
+                    Long userId = StpAppUtil.getLoginId(token);
+                    AppUserDO user = userId == null ? null : appUserMapper.selectById(userId);
+                    if (user != null && Integer.valueOf(1).equals(user.getAccountStatus())) {
+                        attributes.put("userId", userId);
+                        attributes.put("token", token);
                         return true;
                     }
                 } catch (Exception e) {
-                    log.debug("[ws:im] token 验证失败: {}", e.getMessage());
+                    log.debug("[ws:im] token 或账号验证失败");
                 }
             }
         }

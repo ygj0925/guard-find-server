@@ -18,7 +18,9 @@ package com.guardfind.server.im.websocket;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.guardfind.server.im.service.ImService;
+import com.guardfind.server.app.mapper.AppUserMapper;
+import com.guardfind.server.app.model.entity.AppUserDO;
+import com.guardfind.server.app.util.StpAppUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -37,14 +39,14 @@ import java.util.concurrent.CopyOnWriteArraySet;
  *
  * <p>
  * 协议(纯 JSON 文本帧):
- * 客户端发送: {"action":"send","conversationId":123,"content":"hello"}
- * 服务端推送: {"action":"new_message","conversationId":123,"senderId":456,"content":"hello","messageId":789}
- * 服务端推送: {"action":"unread_update","conversationId":123,"unreadCount":3}
+ * 客户端心跳: {"action":"ping"}
+ * 服务端推送: {"action":"new_message","conversationId":"123","senderId":"456","content":"hello","messageId":"789"}
+ * 服务端推送: {"action":"admin_message","messageId":"789","content":"hello","adminName":"官方客服"}
  * </p>
  *
  * <p>
- * 连接鉴权:握手阶段通过 URL 参数 token 验证 Sa-Token。
- * 连接建立后,session 与 userId 绑定,服务端可向指定用户推送。
+ * 连接鉴权:握手阶段通过 URL 参数 token 验证 Sa-Token 和账号状态。
+ * 连接建立后,session 与 userId、原始 token 绑定，每次心跳和推送重新鉴权。
  * 断线后客户端自动降级为 REST 轮询。
  * </p>
  */
@@ -56,63 +58,54 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
     /** userId → 该用户所有活跃的 WebSocketSession(可能多设备) */
     private static final Map<Long, Set<WebSocketSession>> USER_SESSIONS = new ConcurrentHashMap<>();
 
-    private final ImService imService;
+    private final AppUserMapper appUserMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
-        Long userId = getUserId(session);
-        if (userId == null) {
-            log.warn("[ws:im] 连接缺少有效 token,关闭");
-            try {
-                session.close(CloseStatus.NOT_ACCEPTABLE);
-            } catch (Exception ignored) {
-            }
-            return;
+        synchronized (session) {
+            if (!validateSession(session))
+                return;
+            Long userId = getUserId(session);
+            USER_SESSIONS.compute(userId, (id, sessions) -> {
+                if (sessions == null)
+                    sessions = new CopyOnWriteArraySet<>();
+                sessions.add(session);
+                return sessions;
+            });
+            log.info("[ws:im] 用户 {} 连接,当前在线会话数 {}", userId, USER_SESSIONS.size());
         }
-        USER_SESSIONS.computeIfAbsent(userId, k -> new CopyOnWriteArraySet<>()).add(session);
-        log.info("[ws:im] 用户 {} 连接,当前在线会话数 {}", userId, USER_SESSIONS.size());
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
-        Long userId = getUserId(session);
-        if (userId != null) {
-            Set<WebSocketSession> sessions = USER_SESSIONS.get(userId);
-            if (sessions != null) {
-                sessions.remove(session);
-                if (sessions.isEmpty())
-                    USER_SESSIONS.remove(userId);
-            }
-            log.info("[ws:im] 用户 {} 断开", userId);
+        synchronized (session) {
+            removeSession(session);
         }
     }
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) {
-        Long userId = getUserId(session);
-        if (userId == null)
-            return;
-        try {
-            JsonNode node = objectMapper.readTree(message.getPayload());
-            String action = node.path("action").asText("");
-            if ("ping".equals(action)) {
-                session.sendMessage(new TextMessage("{\"action\":\"pong\"}"));
+        synchronized (session) {
+            if (!validateSession(session))
+                return;
+            try {
+                JsonNode node = objectMapper.readTree(message.getPayload());
+                String action = node.path("action").asText("");
+                if ("ping".equals(action)) {
+                    session.sendMessage(new TextMessage("{\"action\":\"pong\"}"));
+                }
+                // 发送仍走 REST，WS 仅用于接收推送及心跳
+            } catch (Exception e) {
+                log.warn("[ws:im] 处理消息异常: {}", e.getMessage());
             }
-            // 一期:发送仍走 REST(服务端做校验/限流/通知),WS 仅用于接收推送
-            // 二期:可在 WS 中直接处理发送,减少 REST 往返
-        } catch (Exception e) {
-            log.warn("[ws:im] 处理消息异常: {}", e.getMessage());
         }
     }
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) {
-        Long userId = getUserId(session);
-        if (userId != null) {
-            Set<WebSocketSession> sessions = USER_SESSIONS.get(userId);
-            if (sessions != null)
-                sessions.remove(session);
+        synchronized (session) {
+            closeSession(session, CloseStatus.SERVER_ERROR);
         }
     }
 
@@ -126,19 +119,14 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map
-                .of("action", "new_message", "conversationId", conversationId, "senderId", senderId, "content", content, "messageId", messageId));
+                .of("action", "new_message", "conversationId", conversationId.toString(), "senderId", senderId.toString(), "content", content, "messageId", messageId.toString()));
         } catch (Exception e) {
             log.warn("[ws:im] 序列化推送消息失败: {}", e.getMessage());
             return;
         }
         TextMessage textMessage = new TextMessage(payload);
         for (WebSocketSession session : sessions) {
-            try {
-                if (session.isOpen())
-                    session.sendMessage(textMessage);
-            } catch (Exception e) {
-                log.warn("[ws:im] 推送消息到用户 {} 失败: {}", targetUserId, e.getMessage());
-            }
+            sendAuthenticated(session, textMessage);
         }
     }
 
@@ -152,7 +140,7 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
         String payload;
         try {
             payload = objectMapper.writeValueAsString(Map
-                .of("action", "admin_message", "messageId", messageId, "content", content, "adminName", adminName == null
+                .of("action", "admin_message", "messageId", messageId.toString(), "content", content, "adminName", adminName == null
                     ? "官方客服"
                     : adminName));
         } catch (Exception e) {
@@ -161,17 +149,68 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
         }
         TextMessage textMessage = new TextMessage(payload);
         for (WebSocketSession session : sessions) {
+            sendAuthenticated(session, textMessage);
+        }
+    }
+
+    private void sendAuthenticated(WebSocketSession session, TextMessage message) {
+        // 与 ping 共用 session 锁，鉴权也必须在锁内，避免排队后使用过期结果。
+        synchronized (session) {
+            if (!validateSession(session))
+                return;
             try {
-                if (session.isOpen())
-                    session.sendMessage(textMessage);
+                session.sendMessage(message);
             } catch (Exception e) {
-                log.warn("[ws:im] 推送客服消息到用户 {} 失败: {}", targetUserId, e.getMessage());
+                log.warn("[ws:im] 推送消息失败: {}", e.getMessage());
+                closeSession(session, CloseStatus.SERVER_ERROR);
             }
         }
     }
 
+    /** 调用方持有 session 锁；每次使用连接都重新验证原始 token 和账号状态。 */
+    private boolean validateSession(WebSocketSession session) {
+        if (!session.isOpen()) {
+            removeSession(session);
+            return false;
+        }
+        Long userId = getUserId(session);
+        Object token = session.getAttributes().get("token");
+        try {
+            if (userId != null && token instanceof String tokenValue && !tokenValue.isBlank()
+                && userId.equals(StpAppUtil.getLoginId(tokenValue))) {
+                AppUserDO user = appUserMapper.selectById(userId);
+                if (user != null && Integer.valueOf(1).equals(user.getAccountStatus()))
+                    return true;
+            }
+        } catch (Exception e) {
+            log.debug("[ws:im] token 或账号验证失败");
+        }
+        closeSession(session, CloseStatus.NOT_ACCEPTABLE);
+        return false;
+    }
+
+    private void closeSession(WebSocketSession session, CloseStatus status) {
+        removeSession(session);
+        try {
+            session.close(status);
+        } catch (Exception e) {
+            log.debug("[ws:im] 关闭连接失败");
+        }
+    }
+
+    private void removeSession(WebSocketSession session) {
+        // 清理只依赖握手时保存的 userId，不能再次依赖已撤销或已变更归属的 token。
+        Long userId = getUserId(session);
+        if (userId != null) {
+            USER_SESSIONS.computeIfPresent(userId, (id, sessions) -> {
+                sessions.remove(session);
+                return sessions.isEmpty() ? null : sessions;
+            });
+        }
+    }
+
     /**
-     * 从 WebSocketSession attributes 中获取用户 ID(握手时由 Interceptor 写入)
+     * 从 WebSocketSession attributes 中获取原始用户 ID，仅用于连接归属和清理，不代表鉴权通过。
      */
     private Long getUserId(WebSocketSession session) {
         Object userId = session.getAttributes().get("userId");
