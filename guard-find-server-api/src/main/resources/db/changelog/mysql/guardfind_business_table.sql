@@ -1237,3 +1237,22 @@ CREATE TABLE IF NOT EXISTS `gf_property_booking` (
 ALTER TABLE `gf_property` ADD COLUMN `community` varchar(100) DEFAULT NULL COMMENT '小区名称';
 ALTER TABLE `gf_property` ADD COLUMN `available_from` date DEFAULT NULL COMMENT '可入住日期';
 ALTER TABLE `gf_property` ADD COLUMN `rental_mode` varchar(10) DEFAULT NULL COMMENT '租赁方式（whole=整租/shared=合租；仅出租）';
+
+-- changeset guardfind:44
+CREATE TABLE IF NOT EXISTS `gf_tool_note` (
+    `id`           bigint(20)    AUTO_INCREMENT             COMMENT 'ID',
+    `user_id`      bigint(20)    NOT NULL                   COMMENT '所属用户 ID',
+    `title`        varchar(100)  NOT NULL                   COMMENT '标题',
+    `content`      text                                     COMMENT '正文',
+    `pinned`       tinyint(4)    NOT NULL DEFAULT 0         COMMENT '是否置顶（0：否；1：是）',
+    `archived`     tinyint(4)    NOT NULL DEFAULT 0         COMMENT '是否归档（0：否；1：是）',
+    `version`      int(11)       NOT NULL DEFAULT 1         COMMENT '乐观锁版本号',
+    `create_user`  bigint(20)    DEFAULT NULL               COMMENT '创建人',
+    `create_time`  datetime      NOT NULL                   COMMENT '创建时间',
+    `update_user`  bigint(20)    DEFAULT NULL               COMMENT '修改人',
+    `update_time`  datetime      DEFAULT NULL               COMMENT '修改时间',
+    `deleted`      bigint(20)    NOT NULL DEFAULT 0         COMMENT '是否已删除（0：否；id：是）',
+    PRIMARY KEY (`id`),
+    INDEX `idx_user_state`(`user_id`, `archived`, `pinned`, `update_time`),
+    INDEX `idx_deleted`(`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='灵感便笺表';

@@ -29,14 +29,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.guardfind.server.tool.model.req.ToolCountdownReq;
+import com.guardfind.server.tool.model.req.ToolNoteReq;
 import com.guardfind.server.tool.model.req.ToolTodoReq;
 import com.guardfind.server.tool.model.resp.ToolCountdownResp;
+import com.guardfind.server.tool.model.resp.ToolNoteResp;
 import com.guardfind.server.tool.model.resp.ToolTodoResp;
 import com.guardfind.server.tool.service.ToolCountdownService;
+import com.guardfind.server.tool.service.ToolNoteService;
 import com.guardfind.server.tool.service.ToolTodoService;
+import top.continew.starter.extension.crud.model.resp.PageResp;
 
 import java.util.List;
 
@@ -56,6 +61,7 @@ public class ToolController {
 
     private final ToolCountdownService countdownService;
     private final ToolTodoService todoService;
+    private final ToolNoteService noteService;
 
     // ==================== 倒数日 ====================
 
@@ -118,5 +124,50 @@ public class ToolController {
     @GetMapping("/todo/list")
     public List<ToolTodoResp> listTodo() {
         return todoService.list();
+    }
+
+    // ==================== 灵感便笺 ====================
+
+    @Operation(summary = "新建便笺")
+    @PostMapping("/note")
+    public Long createNote(@RequestBody @Valid ToolNoteReq req) {
+        return noteService.create(req);
+    }
+
+    @Operation(summary = "修改便笺", description = "需携带 version，版本不一致返回冲突;仅本人记录可修改")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @PutMapping("/note/{id}")
+    public void updateNote(@PathVariable Long id, @RequestBody @Valid ToolNoteReq req) {
+        noteService.update(id, req);
+    }
+
+    @Operation(summary = "切换便笺置顶", description = "仅本人记录可操作")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @PostMapping("/note/{id}/pin")
+    public void toggleNotePin(@PathVariable Long id) {
+        noteService.togglePin(id);
+    }
+
+    @Operation(summary = "切换便笺归档", description = "仅本人记录可操作")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @PostMapping("/note/{id}/archive")
+    public void toggleNoteArchive(@PathVariable Long id) {
+        noteService.toggleArchive(id);
+    }
+
+    @Operation(summary = "删除便笺", description = "仅本人记录可删除")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @DeleteMapping("/note/{id}")
+    public void deleteNote(@PathVariable Long id) {
+        noteService.delete(id);
+    }
+
+    @Operation(summary = "便笺分页", description = "置顶优先,其余按更新时间倒序;keyword 同时匹配标题与正文")
+    @GetMapping("/note/list")
+    public PageResp<ToolNoteResp> listNote(@RequestParam(defaultValue = "1") int page,
+                                           @RequestParam(defaultValue = "20") int size,
+                                           @RequestParam(required = false) String keyword,
+                                           @RequestParam(defaultValue = "false") boolean archived) {
+        return noteService.page(page, size, keyword, archived);
     }
 }
