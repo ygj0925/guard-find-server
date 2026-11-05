@@ -31,6 +31,7 @@ import com.guardfind.server.im.model.entity.ImMessageDO;
 import com.guardfind.server.im.model.resp.ImConversationResp;
 import com.guardfind.server.im.model.resp.ImMessageResp;
 import com.guardfind.server.im.service.ImService;
+import com.guardfind.server.im.support.AfterCommit;
 import com.guardfind.server.im.websocket.ImWebSocketHandler;
 import com.guardfind.server.notification.enums.NotificationEventEnum;
 import com.guardfind.server.notification.service.AppMessageService;
@@ -126,20 +127,37 @@ public class ImServiceImpl implements ImService {
     @Override
     public List<ImMessageResp> messages(Long conversationId, Long afterId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        requireMembership(conversationId, userId);
-        // 拉消息同时标记已读
-        markRead(conversationId);
-        return messageMapper.selectList(Wrappers.<ImMessageDO>lambdaQuery()
+        ImConversationDO conv = requireMembership(conversationId, userId);
+        List<ImMessageDO> msgs = messageMapper.selectList(Wrappers.<ImMessageDO>lambdaQuery()
             .eq(ImMessageDO::getConversationId, conversationId)
             .gt(afterId != null && afterId > 0, ImMessageDO::getId, afterId)
-            .orderByAsc(ImMessageDO::getId)).stream().map(ImServiceImpl::toMsgResp).toList();
+            .orderByAsc(ImMessageDO::getId)
+            .last("LIMIT 100"));
+        // 只把本次真正返回给客户端的对方消息标已读,未翻到的历史仍保持未读。
+        if (!msgs.isEmpty()) {
+            boolean iAmA = Objects.equals(conv.getUserAId(), userId);
+            Long peerId = iAmA ? conv.getUserBId() : conv.getUserAId();
+            int read = messageMapper.update(null, Wrappers.<ImMessageDO>lambdaUpdate()
+                .in(ImMessageDO::getId, msgs.stream().map(ImMessageDO::getId).toList())
+                .eq(ImMessageDO::getSenderId, peerId)
+                .eq(ImMessageDO::getIsRead, 0)
+                .set(ImMessageDO::getIsRead, 1));
+            if (read > 0) {
+                String column = iAmA ? "unread_a" : "unread_b";
+                conversationMapper.update(null, Wrappers.<ImConversationDO>update()
+                    .eq("id", conversationId)
+                    .setSql(column + "=GREATEST(0," + column + "-" + read + ")"));
+            }
+        }
+        return msgs.stream().map(ImServiceImpl::toMsgResp).toList();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public ImMessageResp send(Long conversationId, String content) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        ImConversationDO conv = requireMembership(conversationId, userId);
+        // 锁住会话行,同一会话的发送串行分配未读与摘要,避免并发覆盖。
+        ImConversationDO conv = requireMembershipForUpdate(conversationId, userId);
         if (StrUtil.isBlank(content))
             throw new BusinessException("消息内容不能为空");
         String trimmed = StrUtil.trim(content);
@@ -168,10 +186,10 @@ public class ImServiceImpl implements ImService {
         // 站内信通知对方
         messageService.send(peerId, NotificationEventEnum.POST_COMMENTED, "IM", conversationId, "新消息", "你有一条新消息,点击查看");
 
-        // WebSocket 实时推送(对方不在线时无副作用,客户端降级轮询)
+        // WebSocket 实时推送(对方不在线时无副作用,客户端降级轮询);事务提交后再发,回滚不推送。
         ImWebSocketHandler wsHandler = wsHandlerProvider.getIfAvailable();
         if (wsHandler != null) {
-            wsHandler.pushNewMessage(peerId, conversationId, userId, trimmed, msg.getId());
+            AfterCommit.run(() -> wsHandler.pushNewMessage(peerId, conversationId, userId, trimmed, msg.getId()));
         }
 
         ImMessageResp resp = new ImMessageResp();
@@ -219,13 +237,17 @@ public class ImServiceImpl implements ImService {
         List<AdminMessageDO> msgs = adminMessageMapper.selectList(Wrappers.<AdminMessageDO>lambdaQuery()
             .eq(AdminMessageDO::getUserId, userId)
             .gt(afterId != null && afterId > 0, AdminMessageDO::getId, afterId)
-            .orderByAsc(AdminMessageDO::getId));
-        // 拉取即把客服回复标已读
-        adminMessageMapper.update(null, Wrappers.<AdminMessageDO>update()
-            .eq("user_id", userId)
-            .eq("sender_type", "ADMIN")
-            .eq("is_read", 0)
-            .set("is_read", 1));
+            .orderByAsc(AdminMessageDO::getId)
+            .last("LIMIT 100"));
+        // 只把本次返回的客服回复标已读,避免未返回的告警消息被提前吞掉。
+        if (!msgs.isEmpty()) {
+            adminMessageMapper.update(null, Wrappers.<AdminMessageDO>update()
+                .in("id", msgs.stream().map(AdminMessageDO::getId).toList())
+                .eq("user_id", userId)
+                .eq("sender_type", "ADMIN")
+                .eq("is_read", 0)
+                .set("is_read", 1));
+        }
         return msgs.stream().map(m -> {
             ImMessageResp resp = new ImMessageResp();
             resp.setId(m.getId());
@@ -264,6 +286,17 @@ public class ImServiceImpl implements ImService {
 
     private ImConversationDO requireMembership(Long conversationId, Long userId) {
         ImConversationDO conv = conversationMapper.selectById(conversationId);
+        if (conv == null || (!Objects.equals(conv.getUserAId(), userId) && !Objects.equals(conv
+            .getUserBId(), userId))) {
+            throw new AppBizException(AppBizException.NOT_FOUND, "会话不存在");
+        }
+        return conv;
+    }
+
+    private ImConversationDO requireMembershipForUpdate(Long conversationId, Long userId) {
+        ImConversationDO conv = conversationMapper.selectOne(Wrappers.<ImConversationDO>lambdaQuery()
+            .eq(ImConversationDO::getId, conversationId)
+            .last("FOR UPDATE"));
         if (conv == null || (!Objects.equals(conv.getUserAId(), userId) && !Objects.equals(conv
             .getUserBId(), userId))) {
             throw new AppBizException(AppBizException.NOT_FOUND, "会话不存在");
