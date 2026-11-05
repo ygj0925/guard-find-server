@@ -33,12 +33,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.guardfind.server.tool.model.req.ToolCountdownReq;
+import com.guardfind.server.tool.model.req.ToolItemReq;
 import com.guardfind.server.tool.model.req.ToolNoteReq;
 import com.guardfind.server.tool.model.req.ToolTodoReq;
 import com.guardfind.server.tool.model.resp.ToolCountdownResp;
+import com.guardfind.server.tool.model.resp.ToolItemResp;
 import com.guardfind.server.tool.model.resp.ToolNoteResp;
 import com.guardfind.server.tool.model.resp.ToolTodoResp;
 import com.guardfind.server.tool.service.ToolCountdownService;
+import com.guardfind.server.tool.service.ToolItemService;
 import com.guardfind.server.tool.service.ToolNoteService;
 import com.guardfind.server.tool.service.ToolTodoService;
 import top.continew.starter.extension.crud.model.resp.PageResp;
@@ -62,6 +65,7 @@ public class ToolController {
     private final ToolCountdownService countdownService;
     private final ToolTodoService todoService;
     private final ToolNoteService noteService;
+    private final ToolItemService itemService;
 
     // ==================== 倒数日 ====================
 
@@ -169,5 +173,52 @@ public class ToolController {
                                            @RequestParam(required = false) String keyword,
                                            @RequestParam(defaultValue = "false") boolean archived) {
         return noteService.page(page, size, keyword, archived);
+    }
+
+    // ==================== 物品收纳 ====================
+
+    @Operation(summary = "新增物品")
+    @PostMapping("/item")
+    public Long createItem(@RequestBody @Valid ToolItemReq req) {
+        return itemService.create(req);
+    }
+
+    @Operation(summary = "修改物品", description = "需携带 version，版本不一致返回冲突;仅本人记录可修改")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @PutMapping("/item/{id}")
+    public void updateItem(@PathVariable Long id, @RequestBody @Valid ToolItemReq req) {
+        itemService.update(id, req);
+    }
+
+    @Operation(summary = "调整物品数量", description = "delta 为增量，扣减不能低于 0;并发下按当前值条件更新")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @Parameter(name = "delta", description = "数量增量，可为负", required = true)
+    @PostMapping("/item/{id}/quantity")
+    public void changeItemQuantity(@PathVariable Long id, @RequestParam int delta) {
+        itemService.changeQuantity(id, delta);
+    }
+
+    @Operation(summary = "切换物品归档", description = "仅本人记录可操作")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @PostMapping("/item/{id}/archive")
+    public void toggleItemArchive(@PathVariable Long id) {
+        itemService.toggleArchive(id);
+    }
+
+    @Operation(summary = "删除物品", description = "仅本人记录可删除")
+    @Parameter(name = "id", description = "记录 ID", required = true)
+    @DeleteMapping("/item/{id}")
+    public void deleteItem(@PathVariable Long id) {
+        itemService.delete(id);
+    }
+
+    @Operation(summary = "物品分页", description = "按位置、名称排序;keyword 匹配名称/位置/备注，location 精确筛选所在位置")
+    @GetMapping("/item/list")
+    public PageResp<ToolItemResp> listItem(@RequestParam(defaultValue = "1") int page,
+                                           @RequestParam(defaultValue = "20") int size,
+                                           @RequestParam(required = false) String keyword,
+                                           @RequestParam(required = false) String location,
+                                           @RequestParam(defaultValue = "false") boolean archived) {
+        return itemService.page(page, size, keyword, location, archived);
     }
 }
