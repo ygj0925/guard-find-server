@@ -32,6 +32,7 @@ import com.guardfind.server.system.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import top.continew.starter.core.exception.BusinessException;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
@@ -107,20 +108,31 @@ public class AdminImServiceImpl implements AdminImService {
 
     @Override
     public List<AdminMessageResp> messages(Long userId, Long afterId) {
-        List<AdminMessageDO> msgs = adminMessageMapper.selectList(Wrappers.<AdminMessageDO>lambdaQuery()
-            .eq(AdminMessageDO::getUserId, userId)
-            .gt(afterId != null && afterId > 0, AdminMessageDO::getId, afterId)
-            .orderByAsc(AdminMessageDO::getId));
-        // 拉取即把用户发来的未读标已读
-        adminMessageMapper.update(null, Wrappers.<AdminMessageDO>update()
-            .eq("user_id", userId)
-            .eq("sender_type", SENDER_USER)
-            .eq("is_read", 0)
-            .set("is_read", 1));
+        // 无游标时取最近一屏(倒序取再转正序),带游标则取游标之后的一批
+        List<AdminMessageDO> msgs = afterId != null && afterId > 0
+            ? adminMessageMapper.selectList(Wrappers.<AdminMessageDO>lambdaQuery()
+                .eq(AdminMessageDO::getUserId, userId)
+                .gt(AdminMessageDO::getId, afterId)
+                .orderByAsc(AdminMessageDO::getId)
+                .last("LIMIT 100"))
+            : adminMessageMapper.selectList(Wrappers.<AdminMessageDO>lambdaQuery()
+                .eq(AdminMessageDO::getUserId, userId)
+                .orderByDesc(AdminMessageDO::getId)
+                .last("LIMIT 100")).stream().sorted(Comparator.comparing(AdminMessageDO::getId)).toList();
+        // 只标记本次返回的用户消息,未返回的历史不能凭空清零
+        if (!msgs.isEmpty()) {
+            adminMessageMapper.update(null, Wrappers.<AdminMessageDO>update()
+                .in("id", msgs.stream().map(AdminMessageDO::getId).toList())
+                .eq("user_id", userId)
+                .eq("sender_type", SENDER_USER)
+                .eq("is_read", 0)
+                .set("is_read", 1));
+        }
         return msgs.stream().map(AdminImServiceImpl::toResp).toList();
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public AdminMessageResp send(Long userId, String content) {
         if (StrUtil.isBlank(content)) {
             throw new BusinessException("消息内容不能为空");
@@ -130,7 +142,7 @@ public class AdminImServiceImpl implements AdminImService {
             throw new BusinessException("消息不能超过 2000 个字符");
         }
         AppUserDO user = appUserMapper.selectById(userId);
-        if (user == null) {
+        if (user == null || !Integer.valueOf(1).equals(user.getAccountStatus())) {
             throw new BusinessException("用户不存在");
         }
         AdminMessageDO msg = new AdminMessageDO();
@@ -143,10 +155,11 @@ public class AdminImServiceImpl implements AdminImService {
         msg.setCreateTime(LocalDateTime.now());
         adminMessageMapper.insert(msg);
 
-        // 用户在线时实时推送(与 C 端 IM 共用同一条 /ws/im 连接)
+        // 用户在线时实时推送(与 C 端 IM 共用同一条 /ws/im 连接);提交后再推,回滚不产生幽灵消息
         ImWebSocketHandler wsHandler = wsHandlerProvider.getIfAvailable();
         if (wsHandler != null) {
-            wsHandler.pushAdminMessage(userId, msg.getId(), trimmed, msg.getAdminName());
+            com.guardfind.server.im.support.AfterCommit.run(() -> wsHandler.pushAdminMessage(userId, msg
+                .getId(), trimmed, msg.getAdminName()));
         }
 
         return toResp(msg);

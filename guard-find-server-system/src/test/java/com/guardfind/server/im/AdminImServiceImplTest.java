@@ -17,6 +17,8 @@
 package com.guardfind.server.im;
 
 import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.guardfind.server.app.mapper.AppUserMapper;
 import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.im.mapper.AdminMessageMapper;
@@ -26,12 +28,16 @@ import com.guardfind.server.im.service.impl.AdminImServiceImpl;
 import com.guardfind.server.im.websocket.ImWebSocketHandler;
 import com.guardfind.server.support.ContainerlessTestBase;
 import com.guardfind.server.system.service.UserService;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import top.continew.starter.core.exception.BusinessException;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 import top.continew.starter.extension.crud.model.resp.PageResp;
@@ -39,10 +45,16 @@ import top.continew.starter.extension.crud.model.resp.PageResp;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -65,6 +77,7 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
 
     @BeforeEach
     void setUp() {
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), AdminMessageDO.class);
         adminMessageMapper = mock(AdminMessageMapper.class);
         appUserMapper = mock(AppUserMapper.class);
         service = new AdminImServiceImpl(adminMessageMapper, appUserMapper, userServiceProvider, wsHandlerProvider);
@@ -120,6 +133,85 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
     }
 
     @Test
+    @DisplayName("首屏取最近100条并只标记本次返回的用户消息")
+    void messagesAreBoundedLatestFirstAndReadScopeIsReturnedIds() {
+        when(adminMessageMapper.selectList(any())).thenReturn(List.of(msg(30, 100, "USER", "你好", 0)));
+
+        service.messages(100L, null);
+
+        var queryCaptor = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.Wrapper.class);
+        verify(adminMessageMapper).selectList(queryCaptor.capture());
+        assertTrue(queryCaptor.getValue().getSqlSegment().contains("DESC"));
+        assertTrue(queryCaptor.getValue().getSqlSegment().contains("LIMIT 100"));
+
+        var updateCaptor = ArgumentCaptor
+            .forClass(com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper.class);
+        verify(adminMessageMapper).update(isNull(), updateCaptor.capture());
+        assertTrue(updateCaptor.getValue().getSqlSegment().contains("id IN"));
+        assertTrue(updateCaptor.getValue().getParamNameValuePairs().containsValue(30L));
+    }
+
+    @Test
+    @DisplayName("增量拉取按游标升序且同样有界")
+    void messagesWithCursorAreAscendingAndBounded() {
+        when(adminMessageMapper.selectList(any())).thenReturn(List.of());
+
+        service.messages(100L, 50L);
+
+        var queryCaptor = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.Wrapper.class);
+        verify(adminMessageMapper).selectList(queryCaptor.capture());
+        assertTrue(queryCaptor.getValue().getSqlSegment().contains("ASC"));
+        assertTrue(queryCaptor.getValue().getSqlSegment().contains("LIMIT 100"));
+        verify(adminMessageMapper, never()).update(isNull(), any());
+    }
+
+    @Test
+    @DisplayName("发送在提交后才推送,回滚不推送")
+    void sendPushesOnlyAfterCommit() throws Exception {
+        var method = AdminImServiceImpl.class.getMethod("send", Long.class, String.class);
+        var tx = method.getAnnotation(Transactional.class);
+        assertNotNull(tx, "send 必须开启事务，否则 AfterCommit 退化为落库前立即推送");
+        assertArrayEquals(new Class<?>[]{Exception.class}, tx.rollbackFor());
+
+        AppUserDO user = new AppUserDO();
+        user.setId(100L);
+        user.setAccountStatus(1);
+        when(appUserMapper.selectById(100L)).thenReturn(user);
+        doAnswer(invocation -> {
+            ((AdminMessageDO) invocation.getArgument(0)).setId(77L);
+            return 1;
+        }).when(adminMessageMapper).insert(any(AdminMessageDO.class));
+        ImWebSocketHandler handler = mock(ImWebSocketHandler.class);
+        when(wsHandlerProvider.getIfAvailable()).thenReturn(handler);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try (MockedStatic<StpUtil> stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::getLoginIdAsLong).thenReturn(9L);
+            service.send(100L, "您好");
+            verify(handler, never()).pushAdminMessage(anyLong(), anyLong(), anyString(), anyString());
+            TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
+            verify(handler).pushAdminMessage(100L, 77L, "您好", "官方客服");
+        }
+        finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    @DisplayName("禁用账号不允许后台发送")
+    void sendRejectsDisabledUser() {
+        AppUserDO user = new AppUserDO();
+        user.setId(100L);
+        user.setAccountStatus(0);
+        when(appUserMapper.selectById(100L)).thenReturn(user);
+
+        assertThrows(BusinessException.class, () -> service.send(100L, "你好"));
+
+        verify(adminMessageMapper, never()).insert(any(AdminMessageDO.class));
+    }
+
+    @Test
     @DisplayName("发送校验:空白内容/超长内容拒绝,且不落库不推送")
     void sendRejectsInvalidContent() {
         BusinessException blank = assertThrows(BusinessException.class, () -> service.send(100L, "   "));
@@ -147,6 +239,7 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
         AppUserDO user = new AppUserDO();
         user.setId(100L);
         user.setNickname("张三");
+        user.setAccountStatus(1);
         when(appUserMapper.selectById(100L)).thenReturn(user);
         ImWebSocketHandler handler = mock(ImWebSocketHandler.class);
         when(wsHandlerProvider.getIfAvailable()).thenReturn(handler);
