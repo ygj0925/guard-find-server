@@ -65,13 +65,10 @@ public enum UrgencyLevelEnum {
         if (missingTime == null) {
             return NORMAL;
         }
-        long hours = java.time.Duration.between(missingTime, now).toHours();
-        if (hours < 0) {
+        java.time.Duration elapsed = java.time.Duration.between(missingTime, now);
+        if (elapsed.compareTo(java.time.Duration.ofHours(GOLDEN_HOURS)) <= 0) {
             return URGENT;
         }
-        if (hours <= GOLDEN_HOURS) {
-            return URGENT;
-        }
-        return java.time.Duration.between(missingTime, now).toDays() > 3650 ? STANDING : NORMAL;
+        return elapsed.toDays() > 3650 ? STANDING : NORMAL;
     }
 }

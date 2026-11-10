@@ -28,7 +28,7 @@ package com.guardfind.server.app.exception;
  *
  * <p>
  * 取值必须与 {@code doc/天下无拐接口契约v1.md} 的错误码表一致，且不得与框架已占用的
- * 状态码式取值（"0"、"400"、"401"、"403"、"404"、"405"、"500"）冲突。
+ * 状态码式取值冲突；未登录与档案不可见沿用通用码 "401" 与 "404"。
  * </p>
  *
  * @author guardfind
@@ -78,6 +78,8 @@ public class AppBizException extends RuntimeException {
      * 目标资源不存在或不属于当前用户（用于个人数据越权防护，与不存在同一话术）
      */
     public static final String NOT_FOUND = "4004";
+
+    public static final String CASE_NOT_FOUND = "404";
 
     /**
      * 未登录或登录已过期（与框架 Sa-Token 异常处理器的取值保持一致）

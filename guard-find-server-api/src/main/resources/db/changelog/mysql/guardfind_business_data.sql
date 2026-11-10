@@ -153,3 +153,15 @@ UPDATE `sys_menu` SET `is_hidden` = b'1' WHERE `id` IN (9310, 9320, 9330, 9340, 
 -- changeset guardfind:4
 -- comment 微信小程序一键登录：APP 客户端放开 WECHAT 认证方式
 UPDATE `sys_client` SET `auth_type` = '["PHONE", "ACCOUNT", "WECHAT"]' WHERE `client_id` = 'a7d3f1c9b5e24086f1a9c4d7e0b23158';
+
+-- changeset guardfind:identity-type-dictionary-1
+-- comment C 端身份类型字典，与 IdentityTypeEnum 保持一致
+INSERT INTO `sys_dict`
+(`id`, `name`, `code`, `description`, `is_system`, `create_user`, `create_time`)
+VALUES (5008, '身份类型', 'gf_identity_type', 'C 端用户身份类型，志愿者认证状态单独管理', b'1', 1, NOW());
+
+INSERT INTO `sys_dict_item`
+(`id`, `label`, `value`, `color`, `sort`, `description`, `status`, `dict_id`, `create_user`, `create_time`)
+VALUES (5180, '家属', 'GUARDIAN', 'blue', 1, NULL, 1, 5008, 1, NOW()),
+       (5181, '志愿者', 'VOLUNTEER', 'green', 2, '身份类型不等同于已认证志愿者权限', 1, 5008, 1, NOW()),
+       (5182, '普通用户', 'PUBLIC', 'gray', 3, NULL, 1, 5008, 1, NOW());

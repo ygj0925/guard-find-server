@@ -17,26 +17,15 @@
 package com.guardfind.server.support;
 
 import cn.hutool.extra.spring.SpringUtil;
+import com.feiniaojin.gracefulresponse.api.ResponseStatusFactory;
+import com.feiniaojin.gracefulresponse.defaults.DefaultResponseStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.context.ApplicationContext;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
-/**
- * 无容器单元测试基类（不加载 Spring 上下文，不依赖 MySQL/Redis/网络）
- *
- * <p>
- * ContiNew 的 {@code ValidationUtils}（父类 {@code Validator}）与 {@code RedisUtils} 在类初始化阶段
- * 通过 Hutool {@code SpringUtil.getBean(Class)} 取 {@code jakarta.validation.Validator}、
- * {@code RedissonClient}，裸 JVM 下会抛 {@code ExceptionInInitializerError}，
- * 进而导致 {@code mockStatic(RedisUtils.class)} 报 "Cannot instrument class"。
- * 本基类仅向 {@code SpringUtil} 注入一个 Mock 的 {@code ApplicationContext}（不启动容器、不做任何真实解析），
- * 使上述工具类完成类初始化；Redis 的读写行为仍由各测试用 {@code mockStatic} 自行打桩。
- * </p>
- *
- * @author guardfind
- * @since 2026/9/25
- */
+/** 工具类及响应信封在静态初始化时取 Spring Bean，裸 JVM 测试需先注入无容器夹具。 */
 public abstract class ContainerlessTestBase {
 
     @BeforeEach
@@ -44,7 +33,11 @@ public abstract class ContainerlessTestBase {
         if (SpringUtil.getApplicationContext() != null) {
             return;
         }
-        // Mock 上下文对所有 getBean 调用返回 null，足以让 static final 字段完成赋值
-        new SpringUtil().setApplicationContext(mock(ApplicationContext.class));
+        var context = mock(ApplicationContext.class);
+        var responseStatuses = mock(ResponseStatusFactory.class);
+        when(responseStatuses.defaultSuccess()).thenAnswer(invocation -> new DefaultResponseStatus("0", "ok"));
+        when(responseStatuses.defaultError()).thenAnswer(invocation -> new DefaultResponseStatus("500", "error"));
+        when(context.getBean(ResponseStatusFactory.class)).thenReturn(responseStatuses);
+        new SpringUtil().setApplicationContext(context);
     }
 }

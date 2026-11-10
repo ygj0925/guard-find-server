@@ -18,6 +18,7 @@ package com.guardfind.server.findcase;
 
 import com.guardfind.server.common.enums.GenderEnum;
 import com.guardfind.server.findcase.enums.CaseStatusEnum;
+import com.guardfind.server.findcase.enums.UrgencyLevelEnum;
 import com.guardfind.server.findcase.model.entity.FindCaseDO;
 import com.guardfind.server.findcase.model.entity.FindCaseMediaDO;
 import com.guardfind.server.findcase.support.CaseSubmitValidator;
@@ -129,6 +130,23 @@ class CaseRulesTest extends ContainerlessTestBase {
         assertThatThrownBy(() -> CaseSubmitValidator.validate(completeCase(), tooMany, 0)).hasMessageContaining("9");
         assertThatThrownBy(() -> CaseSubmitValidator.validate(completeCase(), List.of(media("GIF")), 0))
             .hasMessageContaining("PHOTO/VIDEO");
+    }
+
+    @Test
+    void goldenHoursUseExactBoundaryInsteadOfTruncatedHours() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 11, 12, 0);
+        assertThat(UrgencyLevelEnum.evaluate(now.minusHours(72), now)).isEqualTo(UrgencyLevelEnum.URGENT);
+        assertThat(UrgencyLevelEnum.evaluate(now.minusHours(72).minusSeconds(1), now))
+            .isEqualTo(UrgencyLevelEnum.NORMAL);
+        assertThat(UrgencyLevelEnum.evaluate(now.minusHours(73), now)).isEqualTo(UrgencyLevelEnum.NORMAL);
+    }
+
+    @Test
+    void missingTimeAndLongStandingRules() {
+        LocalDateTime now = LocalDateTime.of(2026, 11, 11, 12, 0);
+        assertThat(UrgencyLevelEnum.evaluate(null, now)).isEqualTo(UrgencyLevelEnum.NORMAL);
+        assertThat(UrgencyLevelEnum.evaluate(now.minusDays(3650), now)).isEqualTo(UrgencyLevelEnum.NORMAL);
+        assertThat(UrgencyLevelEnum.evaluate(now.minusDays(3651), now)).isEqualTo(UrgencyLevelEnum.STANDING);
     }
 
     private FindCaseMediaDO media(String type) {

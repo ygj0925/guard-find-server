@@ -72,7 +72,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import top.continew.starter.cache.redisson.util.RedisUtils;
 import top.continew.starter.core.constant.StringConstants;
-import top.continew.starter.core.exception.BusinessException;
 import top.continew.starter.core.util.ServletUtils;
 import top.continew.starter.core.util.validation.CheckUtils;
 import top.continew.starter.core.util.validation.ValidationUtils;
@@ -281,7 +280,7 @@ public class CaseServiceImpl implements CaseService {
         FindCaseDO caseDO = findCaseMapper.selectById(id);
         if (caseDO == null || !this.isVisiblePublicly(caseDO.getStatus())) {
             // 草稿、审核中、驳回、撤回、归档、下架、删除统一表现为"不存在"，避免状态探测
-            throw new BusinessException("该信息不存在或已下架");
+            throw new AppBizException(AppBizException.CASE_NOT_FOUND, "该信息不存在或已下架");
         }
         this.increaseViewCount(id);
         return caseViewAssembler.toPublic(caseDO);
@@ -293,7 +292,7 @@ public class CaseServiceImpl implements CaseService {
         Long userId = AppUserContextHolder.getUserIdRequired();
         FindCaseDO caseDO = findCaseMapper.selectById(id);
         if (caseDO == null || caseDO.getStatus() == CaseStatusEnum.ERASED) {
-            throw new BusinessException("该信息不存在或已下架");
+            throw new AppBizException(AppBizException.CASE_NOT_FOUND, "该信息不存在或已下架");
         }
         CheckUtils.throwIf(!this.canViewFull(caseDO, userId), "无权限查看该档案的联系方式与详细地址");
         this.trackViewFull(id, userId);

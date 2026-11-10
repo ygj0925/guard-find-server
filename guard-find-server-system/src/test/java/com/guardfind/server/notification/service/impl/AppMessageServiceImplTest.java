@@ -16,6 +16,9 @@
 
 package com.guardfind.server.notification.service.impl;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.guardfind.server.notification.enums.NotificationEventEnum;
 import com.guardfind.server.notification.mapper.AppMessageMapper;
@@ -26,8 +29,14 @@ import com.guardfind.server.notification.service.NotificationRealtimeService;
 import com.guardfind.server.notification.service.NotificationSmsService;
 import com.guardfind.server.notification.support.PreferenceSupport;
 import com.guardfind.server.support.ContainerlessTestBase;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -40,16 +49,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * 站内消息发送单元测试：先落库后推送，推送/短信失败不外溢
+ * 站内消息发送与未读计数单元测试：验证 Mapper 调用及过滤条件，不依赖真实数据库。
  */
 class AppMessageServiceImplTest extends ContainerlessTestBase {
 
     private final AppMessageMapper messageMapper = mock(AppMessageMapper.class);
     private final NotificationRealtimeService realtime = mock(NotificationRealtimeService.class);
     private final NotificationSmsService sms = mock(NotificationSmsService.class);
+
+    @BeforeEach
+    void initMessageTableInfo() {
+        TableInfoHelper
+            .initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), AppMessageDO.class);
+    }
 
     private AppMessageServiceImpl service(PreferenceDO preference) {
         AppMessageServiceImpl service = spy(new AppMessageServiceImpl(messageMapper, mock(PreferenceMapper.class), realtime, sms, new ObjectMapper()
@@ -110,5 +127,63 @@ class AppMessageServiceImplTest extends ContainerlessTestBase {
         assertThat(PreferenceSupport.isSmsEnabled(null)).isFalse();
         assertThat(PreferenceSupport.resolveEvent(" case_lead ")).isEqualTo(NotificationEventEnum.CASE_LEAD);
         assertThat(PreferenceSupport.resolveEvent("UNKNOWN")).isNull();
+    }
+
+    @Test
+    @DisplayName("未读计数只绑定指定接收人和 read_status=false，不限制消息分类")
+    void countUnreadScopesReceiverAndUnreadStatus() {
+        when(messageMapper.selectCount(any())).thenReturn(3L);
+
+        assertThat(service(null).countUnread(7L)).isEqualTo(3L);
+
+        @SuppressWarnings("unchecked") ArgumentCaptor<LambdaQueryWrapper<AppMessageDO>> captor = ArgumentCaptor
+            .forClass(LambdaQueryWrapper.class);
+        verify(messageMapper).selectCount(captor.capture());
+        LambdaQueryWrapper<AppMessageDO> wrapper = captor.getValue();
+        String sql = wrapper.getSqlSegment();
+        assertThat(boundValue(wrapper, sql, "receiver_id")).isEqualTo(7L);
+        assertThat(boundValue(wrapper, sql, "read_status")).isEqualTo(false);
+        assertThat(sql).doesNotContain("category", " OR ");
+        assertThat(wrapper.getParamNameValuePairs()).hasSize(2);
+        verifyNoMoreInteractions(messageMapper);
+        verifyNoInteractions(realtime, sms);
+    }
+
+    @Test
+    @DisplayName("未读计数接收人为空时返回零，不访问 Mapper")
+    void countUnreadReturnsZeroForNullReceiver() {
+        assertThat(service(null).countUnread(null)).isZero();
+
+        verifyNoInteractions(messageMapper, realtime, sms);
+    }
+
+    @Test
+    @DisplayName("未读计数查询返回 null 时兜底为零")
+    void countUnreadReturnsZeroForNullCount() {
+        when(messageMapper.selectCount(any())).thenReturn(null);
+
+        assertThat(service(null).countUnread(7L)).isZero();
+
+        verify(messageMapper).selectCount(any());
+        verifyNoMoreInteractions(messageMapper);
+    }
+
+    @Test
+    @DisplayName("未读计数查询返回零时保持零")
+    void countUnreadReturnsZeroForEmptyCount() {
+        when(messageMapper.selectCount(any())).thenReturn(0L);
+
+        assertThat(service(null).countUnread(7L)).isZero();
+
+        verify(messageMapper).selectCount(any());
+        verifyNoMoreInteractions(messageMapper);
+    }
+
+    private static Object boundValue(LambdaQueryWrapper<AppMessageDO> wrapper, String sql, String column) {
+        Matcher matcher = Pattern.compile("\\b" + column + "\\s*=\\s*#\\{ew\\.paramNameValuePairs\\.([^}]+)\\}")
+            .matcher(sql);
+        assertThat(matcher.find()).as("SQL 必须绑定 %s: %s", column, sql).isTrue();
+        assertThat(wrapper.getParamNameValuePairs()).containsKey(matcher.group(1));
+        return wrapper.getParamNameValuePairs().get(matcher.group(1));
     }
 }
