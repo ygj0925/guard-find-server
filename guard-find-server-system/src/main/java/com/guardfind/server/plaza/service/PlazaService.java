@@ -33,25 +33,7 @@ import jakarta.validation.Valid;
 public interface PlazaService {
 
     /**
-     * 广场信息流
-     *
-     * @param sort         排序方式：latest/urgent/nearby/found
-     * @param provinceCode 省编码（nearby 流必填其一）
-     * @param cityCode     市编码
-     * @param keyword      关键词
-     * @param cursor       游标（首屏为空）
-     * @param size         每页条数
-     * @return 游标分页结果
-     */
-    FeedCursorResp<CasePublicResp> feed(String sort,
-                                        String provinceCode,
-                                        String cityCode,
-                                        String keyword,
-                                        String cursor,
-                                        Integer size);
-
-    /**
-     * 广场信息流（含搜索扩展条件）
+     * 广场信息流（四流排序可叠加性别/年龄段/情形/血样/年份筛选）
      *
      * @param query 查询条件
      * @return 游标分页结果

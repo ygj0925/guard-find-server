@@ -127,25 +127,8 @@ public class PlazaServiceImpl implements PlazaService {
     private final ContentCheckGateway contentCheckGateway;
 
     @Override
-    public FeedCursorResp<CasePublicResp> feed(String sort,
-                                               String provinceCode,
-                                               String cityCode,
-                                               String keyword,
-                                               String cursor,
-                                               Integer size) {
-        CaseFeedQuery query = new CaseFeedQuery();
-        query.setSort(sort);
-        query.setProvinceCode(provinceCode);
-        query.setCityCode(cityCode);
-        query.setKeyword(keyword);
-        query.setCursor(cursor);
-        query.setSize(size);
-        return this.feed(query);
-    }
-
-    @Override
     public FeedCursorResp<CasePublicResp> feed(CaseFeedQuery query) {
-        return this.query(query, false);
+        return this.query(query);
     }
 
     @Override
@@ -159,7 +142,7 @@ public class PlazaServiceImpl implements PlazaService {
         String reason = contentCheckGateway.check(keyword);
         ValidationUtils.throwIf(StrUtil.isNotBlank(reason), "搜索词不合规：{}", reason);
         query.setKeyword(keyword);
-        FeedCursorResp<CasePublicResp> resp = this.query(query, true);
+        FeedCursorResp<CasePublicResp> resp = this.query(query);
         this.saveSearchHistory(query.getKeyword());
         return resp;
     }
@@ -214,13 +197,12 @@ public class PlazaServiceImpl implements PlazaService {
     }
 
     /**
-     * 信息流查询主流程
+     * 信息流查询主流程（广场与搜索共用；筛选位为空时不参与过滤）
      *
-     * @param query     条件
-     * @param forSearch 是否为搜索场景（搜索允许在喜报之外的流中命中"待审核被驳回"以外的公开档案）
+     * @param query 条件
      * @return 分页结果
      */
-    private FeedCursorResp<CasePublicResp> query(CaseFeedQuery query, boolean forSearch) {
+    private FeedCursorResp<CasePublicResp> query(CaseFeedQuery query) {
         FeedSortEnum sort = this.resolveSort(query.getSort());
         int size = this.resolveSize(query.getSize());
         FeedCursor cursor = FeedCursor.decode(query.getCursor());
@@ -228,9 +210,7 @@ public class PlazaServiceImpl implements PlazaService {
             .in(FindCaseDO::getStatus, this.statusesOf(sort));
         this.applyRegion(wrapper, sort, query);
         this.applyUrgency(wrapper, sort);
-        if (forSearch) {
-            this.applySearchFilters(wrapper, query);
-        }
+        this.applyFilters(wrapper, query);
         this.applyKeyword(wrapper, query.getKeyword());
         this.applyCursor(wrapper, cursor, sort);
         // 多取一条用于判断是否还有下一页
@@ -298,7 +278,7 @@ public class PlazaServiceImpl implements PlazaService {
             .ge(FindCaseDO::getMissingTime, LocalDateTime.now().minusHours(UrgencyLevelEnum.GOLDEN_HOURS));
     }
 
-    private void applySearchFilters(LambdaQueryWrapper<FindCaseDO> wrapper, CaseFeedQuery query) {
+    private void applyFilters(LambdaQueryWrapper<FindCaseDO> wrapper, CaseFeedQuery query) {
         String caseType = StrUtil.trimToNull(query.getCaseType());
         String ageGroup = StrUtil.trimToNull(query.getAgeGroup());
         String bloodSampleStatus = StrUtil.trimToNull(query.getBloodSampleStatus());

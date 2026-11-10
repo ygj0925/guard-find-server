@@ -21,20 +21,19 @@ import com.guardfind.server.plaza.model.req.TrackReq;
 import com.guardfind.server.plaza.model.resp.FeedCursorResp;
 import com.guardfind.server.plaza.model.resp.PlazaFilterResp;
 import com.guardfind.server.plaza.model.resp.PlazaStatisticsResp;
+import com.guardfind.server.findcase.model.query.CaseFeedQuery;
 import com.guardfind.server.findcase.model.resp.CasePublicResp;
 import com.guardfind.server.plaza.service.PlazaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import top.continew.starter.ratelimiter.annotation.RateLimiter;
 import top.continew.starter.ratelimiter.enums.LimitType;
@@ -57,18 +56,13 @@ public class PlazaController {
 
     private final PlazaService plazaService;
 
-    @Operation(summary = "广场信息流", description = "sort 取值 latest/urgent/nearby/found，四流互斥且仅返回对外可见档案")
+    @Operation(summary = "广场信息流", description = "sort 取值 latest/urgent/nearby/found，四流互斥且仅返回对外可见档案；可叠加性别/年龄段/情形/血样/年份筛选")
     @Parameter(name = "sort", description = "排序方式", example = "latest")
     @Parameter(name = "cursor", description = "游标，首屏不传")
     @RateLimiter(name = "APP:PLAZA:FEED", rate = 120, interval = 1, unit = TimeUnit.MINUTES, type = LimitType.IP, message = "浏览过于频繁，请稍后再试")
     @GetMapping("/feed")
-    public FeedCursorResp<CasePublicResp> feed(@RequestParam(required = false) String sort,
-                                               @RequestParam(required = false) String provinceCode,
-                                               @RequestParam(required = false) String cityCode,
-                                               @RequestParam(required = false) @Size(max = 50, message = "关键词长度不能超过 {max} 个字符") String keyword,
-                                               @RequestParam(required = false) String cursor,
-                                               @RequestParam(required = false) Integer size) {
-        return plazaService.feed(sort, provinceCode, cityCode, keyword, cursor, size);
+    public FeedCursorResp<CasePublicResp> feed(@Valid CaseFeedQuery query) {
+        return plazaService.feed(query);
     }
 
     @Operation(summary = "广场筛选器", description = "区划树与字典项，前端不硬编码枚举")
