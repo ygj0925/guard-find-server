@@ -40,4 +40,11 @@ public interface CollectOrchestrator {
      * @return 批次执行结果
      */
     CollectRunResp run(String sourceCode, Integer maxPages, String triggerType);
+
+    /**
+     * 清理超出留存期的原文正文（与源是否启用无关）
+     *
+     * @return 清空的快照数
+     */
+    int purgeExpiredRawContent();
 }

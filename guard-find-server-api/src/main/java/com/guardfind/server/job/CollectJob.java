@@ -42,7 +42,7 @@ import java.util.List;
  * <p>
  * 逐源判断 {@code enabled}（默认关闭）：只有运营在取得站方书面授权后显式开启的源才会被遍历，未开启的源一次请求都不会发出。
  * 单个源失败（含 robots 中止）只记录并继续下一个源，不影响其余源；本轮的页数、新增、失败与中止原因由编排器落
- * {@code gf_collect_log}。
+ * {@code gf_collect_log}。原文正文的 180 天留存期清理每轮先执行，即使没有启用的源也照常清理。
  * </p>
  *
  * @author guardfind
@@ -91,6 +91,11 @@ public class CollectJob {
     private static void execute() {
         CollectSourceService collectSourceService = SpringUtil.getBean(CollectSourceService.class);
         CollectOrchestrator collectOrchestrator = SpringUtil.getBean(CollectOrchestrator.class);
+        try {
+            collectOrchestrator.purgeExpiredRawContent();
+        } catch (Exception e) {
+            log.error("采集原文留存期清理失败", e);
+        }
         List<CollectSourceResp> sources = collectSourceService.listEnabled();
         if (CollUtil.isEmpty(sources)) {
             log.info("无已启用采集源（enabled=false 的源一律跳过），本轮不发起任何请求");

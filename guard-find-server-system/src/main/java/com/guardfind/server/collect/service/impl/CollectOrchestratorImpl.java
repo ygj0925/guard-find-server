@@ -116,6 +116,16 @@ public class CollectOrchestratorImpl implements CollectOrchestrator {
         return result;
     }
 
+    @Override
+    public int purgeExpiredRawContent() {
+        LocalDateTime threshold = LocalDateTime.now().minusDays(CollectConstants.RAW_RETENTION_DAYS);
+        int cleared = store.clearRawContentFetchedBefore(threshold);
+        if (cleared > 0) {
+            log.info("采集原文留存期清理：清空 {} 条早于 {} 的原文正文", cleared, threshold);
+        }
+        return cleared;
+    }
+
     /**
      * 主流程（robots 门禁 → 翻页 → 逐条采集 → 收敛）
      */

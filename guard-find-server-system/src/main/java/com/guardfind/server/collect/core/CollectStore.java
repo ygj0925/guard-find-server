@@ -146,6 +146,19 @@ public class CollectStore {
     }
 
     /**
+     * 清空抓取时间早于阈值的原文正文（保留 sha256 / source_url / fetched_at 作为采集留痕）
+     *
+     * @param fetchedBefore 抓取时间阈值（不含）
+     * @return 清空的快照数
+     */
+    public int clearRawContentFetchedBefore(LocalDateTime fetchedBefore) {
+        return rawMapper.update(null, Wrappers.<CollectRawDO>lambdaUpdate()
+            .set(CollectRawDO::getContent, null)
+            .lt(CollectRawDO::getFetchedAt, fetchedBefore)
+            .isNotNull(CollectRawDO::getContent));
+    }
+
+    /**
      * 按来源定位候选（重跑幂等判据）
      *
      * @param sourceCode 源标识
