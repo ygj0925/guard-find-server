@@ -64,7 +64,7 @@ class AppFileControllerTest extends ContainerlessTestBase {
     @Test
     @DisplayName("上传成功:目录按用户与业务域隔离,返回 url/name/size")
     void uploadScopesPathByUserAndFolder() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("file", "photo.PNG", "image/png", new byte[]{1, 2, 3});
+        MockMultipartFile file = new MockMultipartFile("file", "photo.PNG", "image/png", new byte[] {1, 2, 3});
         FileInfo info = mock(FileInfo.class);
         when(info.getUrl()).thenReturn("https://cdn.example.com/a.png");
         when(info.getOriginalFilename()).thenReturn("a.png");
@@ -89,15 +89,13 @@ class AppFileControllerTest extends ContainerlessTestBase {
     @Test
     @DisplayName("非图片扩展名或 MIME 不匹配时拒绝,不落存储")
     void rejectsNonImage() throws Exception {
-        MockMultipartFile text = new MockMultipartFile("file", "a.txt", "text/plain", new byte[]{1});
-        MockMultipartFile spoofed = new MockMultipartFile("file", "a.png", "text/plain", new byte[]{1});
+        MockMultipartFile text = new MockMultipartFile("file", "a.txt", "text/plain", new byte[] {1});
+        MockMultipartFile spoofed = new MockMultipartFile("file", "a.png", "text/plain", new byte[] {1});
 
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
-            assertEquals(AppBizException.RULE_REJECTED,
-                rejected(() -> controller.upload(text, "case")).getCode());
-            assertEquals(AppBizException.RULE_REJECTED,
-                rejected(() -> controller.upload(spoofed, "case")).getCode());
+            assertEquals(AppBizException.RULE_REJECTED, rejected(() -> controller.upload(text, "case")).getCode());
+            assertEquals(AppBizException.RULE_REJECTED, rejected(() -> controller.upload(spoofed, "case")).getCode());
             verify(fileService, never()).upload(any(MultipartFile.class), anyString());
         }
     }
@@ -106,13 +104,12 @@ class AppFileControllerTest extends ContainerlessTestBase {
     @DisplayName("超过 5MB 拒绝")
     void rejectsOversize() throws Exception {
         byte[] bytes = new byte[5 * 1024 * 1024 + 1];
-        Arrays.fill(bytes, (byte) 1);
+        Arrays.fill(bytes, (byte)1);
         MockMultipartFile file = new MockMultipartFile("file", "a.jpg", "image/jpeg", bytes);
 
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
-            assertEquals(AppBizException.RULE_REJECTED,
-                rejected(() -> controller.upload(file, "case")).getCode());
+            assertEquals(AppBizException.RULE_REJECTED, rejected(() -> controller.upload(file, "case")).getCode());
             verify(fileService, never()).upload(any(MultipartFile.class), anyString());
         }
     }
@@ -121,14 +118,12 @@ class AppFileControllerTest extends ContainerlessTestBase {
     @DisplayName("未知目录与空文件均拒绝")
     void rejectsUnknownFolderAndEmptyFile() throws Exception {
         MockMultipartFile empty = new MockMultipartFile("file", "a.png", "image/png", new byte[0]);
-        MockMultipartFile ok = new MockMultipartFile("file", "a.png", "image/png", new byte[]{1});
+        MockMultipartFile ok = new MockMultipartFile("file", "a.png", "image/png", new byte[] {1});
 
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
-            assertEquals(AppBizException.RULE_REJECTED,
-                rejected(() -> controller.upload(ok, "private")).getCode());
-            assertEquals(AppBizException.RULE_REJECTED,
-                rejected(() -> controller.upload(empty, "case")).getCode());
+            assertEquals(AppBizException.RULE_REJECTED, rejected(() -> controller.upload(ok, "private")).getCode());
+            assertEquals(AppBizException.RULE_REJECTED, rejected(() -> controller.upload(empty, "case")).getCode());
             verify(fileService, never()).upload(any(MultipartFile.class), anyString());
         }
     }
@@ -136,7 +131,7 @@ class AppFileControllerTest extends ContainerlessTestBase {
     @Test
     @DisplayName("未登录直接返回 401,不读取文件")
     void rejectsUnauthenticated() throws Exception {
-        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", new byte[]{1});
+        MockMultipartFile file = new MockMultipartFile("file", "a.png", "image/png", new byte[] {1});
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired)
                 .thenThrow(new AppBizException(AppBizException.UNAUTHORIZED, "登录已过期，请重新登录"));

@@ -77,7 +77,8 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
 
     @BeforeEach
     void setUp() {
-        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), AdminMessageDO.class);
+        TableInfoHelper
+            .initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), AdminMessageDO.class);
         adminMessageMapper = mock(AdminMessageMapper.class);
         appUserMapper = mock(AppUserMapper.class);
         service = new AdminImServiceImpl(adminMessageMapper, appUserMapper, userServiceProvider, wsHandlerProvider);
@@ -144,8 +145,7 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
         assertTrue(queryCaptor.getValue().getSqlSegment().contains("DESC"));
         assertTrue(queryCaptor.getValue().getSqlSegment().contains("LIMIT 100"));
 
-        var updateCaptor = ArgumentCaptor
-            .forClass(com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper.class);
+        var updateCaptor = ArgumentCaptor.forClass(com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper.class);
         verify(adminMessageMapper).update(isNull(), updateCaptor.capture());
         assertTrue(updateCaptor.getValue().getSqlSegment().contains("id IN"));
         assertTrue(updateCaptor.getValue().getParamNameValuePairs().containsValue(30L));
@@ -171,14 +171,14 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
         var method = AdminImServiceImpl.class.getMethod("send", Long.class, String.class);
         var tx = method.getAnnotation(Transactional.class);
         assertNotNull(tx, "send 必须开启事务，否则 AfterCommit 退化为落库前立即推送");
-        assertArrayEquals(new Class<?>[]{Exception.class}, tx.rollbackFor());
+        assertArrayEquals(new Class<?>[] {Exception.class}, tx.rollbackFor());
 
         AppUserDO user = new AppUserDO();
         user.setId(100L);
         user.setAccountStatus(1);
         when(appUserMapper.selectById(100L)).thenReturn(user);
         doAnswer(invocation -> {
-            ((AdminMessageDO) invocation.getArgument(0)).setId(77L);
+            ((AdminMessageDO)invocation.getArgument(0)).setId(77L);
             return 1;
         }).when(adminMessageMapper).insert(any(AdminMessageDO.class));
         ImWebSocketHandler handler = mock(ImWebSocketHandler.class);
@@ -189,11 +189,9 @@ class AdminImServiceImplTest extends ContainerlessTestBase {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(9L);
             service.send(100L, "您好");
             verify(handler, never()).pushAdminMessage(anyLong(), anyLong(), anyString(), anyString());
-            TransactionSynchronizationManager.getSynchronizations()
-                .forEach(TransactionSynchronization::afterCommit);
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
             verify(handler).pushAdminMessage(100L, 77L, "您好", "官方客服");
-        }
-        finally {
+        } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
     }

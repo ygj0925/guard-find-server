@@ -141,15 +141,13 @@ class ToolNoteServiceImplTest extends ContainerlessTestBase {
             AppBizException ex = assertThrows(AppBizException.class, () -> service.update(5L, req("改", "", 2)));
             assertEquals(AppBizException.STATE_CONFLICT, ex.getCode());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaUpdateWrapper<ToolNoteDO>> captor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ToolNoteDO>> captor = ArgumentCaptor
                 .forClass(LambdaUpdateWrapper.class);
             verify(mapper).update(isNull(), captor.capture());
             String sql = captor.getValue().getSqlSegment();
             assertTrue(sql.contains("version ="), sql);
             assertTrue(sql.contains("user_id ="), sql);
-            assertTrue(captor.getValue().getSqlSet().contains("version = version + 1"), captor.getValue()
-                .getSqlSet());
+            assertTrue(captor.getValue().getSqlSet().contains("version = version + 1"), captor.getValue().getSqlSet());
         }
     }
 
@@ -163,8 +161,7 @@ class ToolNoteServiceImplTest extends ContainerlessTestBase {
             service.togglePin(5L);
             service.toggleArchive(5L);
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaUpdateWrapper<ToolNoteDO>> captor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ToolNoteDO>> captor = ArgumentCaptor
                 .forClass(LambdaUpdateWrapper.class);
             verify(mapper, org.mockito.Mockito.times(2)).update(isNull(), captor.capture());
             assertTrue(captor.getAllValues().get(0).getSqlSet().contains("pinned = 1 - pinned"));
@@ -201,10 +198,9 @@ class ToolNoteServiceImplTest extends ContainerlessTestBase {
             assertTrue(resp.getList().get(0).getPinned());
             assertFalse(resp.getList().get(0).getArchived());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Page<ToolNoteDO>> pageCaptor = ArgumentCaptor.forClass(Page.class);
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaQueryWrapper<ToolNoteDO>> queryCaptor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<Page<ToolNoteDO>> pageCaptor = ArgumentCaptor
+                .forClass(Page.class);
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaQueryWrapper<ToolNoteDO>> queryCaptor = ArgumentCaptor
                 .forClass(LambdaQueryWrapper.class);
             verify(mapper).selectPage(pageCaptor.capture(), queryCaptor.capture());
             assertEquals(1, pageCaptor.getValue().getCurrent());

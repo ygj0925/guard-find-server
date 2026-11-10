@@ -118,8 +118,8 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
             return;
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(Map
-                .of("action", "new_message", "conversationId", conversationId.toString(), "senderId", senderId.toString(), "content", content, "messageId", messageId.toString()));
+            payload = objectMapper.writeValueAsString(Map.of("action", "new_message", "conversationId", conversationId
+                .toString(), "senderId", senderId.toString(), "content", content, "messageId", messageId.toString()));
         } catch (Exception e) {
             log.warn("[ws:im] 序列化推送消息失败: {}", e.getMessage());
             return;
@@ -139,10 +139,8 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
             return;
         String payload;
         try {
-            payload = objectMapper.writeValueAsString(Map
-                .of("action", "admin_message", "messageId", messageId.toString(), "content", content, "adminName", adminName == null
-                    ? "官方客服"
-                    : adminName));
+            payload = objectMapper.writeValueAsString(Map.of("action", "admin_message", "messageId", messageId
+                .toString(), "content", content, "adminName", adminName == null ? "官方客服" : adminName));
         } catch (Exception e) {
             log.warn("[ws:im] 序列化客服消息失败: {}", e.getMessage());
             return;
@@ -176,8 +174,8 @@ public class ImWebSocketHandler extends TextWebSocketHandler {
         Long userId = getUserId(session);
         Object token = session.getAttributes().get("token");
         try {
-            if (userId != null && token instanceof String tokenValue && !tokenValue.isBlank()
-                && userId.equals(StpAppUtil.getLoginId(tokenValue))) {
+            if (userId != null && token instanceof String tokenValue && !tokenValue.isBlank() && userId
+                .equals(StpAppUtil.getLoginId(tokenValue))) {
                 AppUserDO user = appUserMapper.selectById(userId);
                 if (user != null && Integer.valueOf(1).equals(user.getAccountStatus()))
                     return true;

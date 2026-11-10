@@ -320,7 +320,8 @@ class ImWebSocketSecurityTest {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/ws/im");
         if (token != null)
             request.setParameter("token", token);
-        return handshake.beforeHandshake(new ServletServerHttpRequest(request), mock(ServerHttpResponse.class), handler, attributes);
+        return handshake
+            .beforeHandshake(new ServletServerHttpRequest(request), mock(ServerHttpResponse.class), handler, attributes);
     }
 
     private WebSocketSession session(String token) {
@@ -347,8 +348,10 @@ class ImWebSocketSecurityTest {
             case DISABLED -> user.setAccountStatus(2);
             case MISSING_USER -> when(users.selectById(USER_ID)).thenReturn(null);
             case NULL_STATUS -> user.setAccountStatus(null);
-            case TOKEN_FAILURE -> app.when(() -> StpAppUtil.getLoginId(TOKEN)).thenThrow(new IllegalStateException("token lookup"));
-            case ACCOUNT_FAILURE -> when(users.selectById(USER_ID)).thenThrow(new IllegalStateException("account lookup"));
+            case TOKEN_FAILURE -> app.when(() -> StpAppUtil.getLoginId(TOKEN))
+                .thenThrow(new IllegalStateException("token lookup"));
+            case ACCOUNT_FAILURE -> when(users.selectById(USER_ID))
+                .thenThrow(new IllegalStateException("account lookup"));
             case MISSING_TOKEN -> session.getAttributes().remove("token");
         }
     }

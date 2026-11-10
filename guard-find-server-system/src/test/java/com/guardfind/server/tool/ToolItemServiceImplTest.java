@@ -140,15 +140,13 @@ class ToolItemServiceImplTest extends ContainerlessTestBase {
             AppBizException ex = assertThrows(AppBizException.class, () -> service.update(5L, req("改", "柜子", 4, 2)));
             assertEquals(AppBizException.STATE_CONFLICT, ex.getCode());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
                 .forClass(LambdaUpdateWrapper.class);
             verify(mapper).update(isNull(), captor.capture());
             String sql = captor.getValue().getSqlSegment();
             assertTrue(sql.contains("version ="), sql);
             assertTrue(sql.contains("user_id ="), sql);
-            assertTrue(captor.getValue().getSqlSet().contains("version = version + 1"), captor.getValue()
-                .getSqlSet());
+            assertTrue(captor.getValue().getSqlSet().contains("version = version + 1"), captor.getValue().getSqlSet());
         }
     }
 
@@ -173,8 +171,7 @@ class ToolItemServiceImplTest extends ContainerlessTestBase {
             when(mapper.update(isNull(), any())).thenReturn(1);
 
             service.changeQuantity(5L, -1);
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
                 .forClass(LambdaUpdateWrapper.class);
             verify(mapper).update(isNull(), captor.capture());
             String sql = captor.getValue().getSqlSegment();
@@ -197,8 +194,7 @@ class ToolItemServiceImplTest extends ContainerlessTestBase {
 
             service.toggleArchive(5L);
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ToolItemDO>> captor = ArgumentCaptor
                 .forClass(LambdaUpdateWrapper.class);
             verify(mapper).update(isNull(), captor.capture());
             assertTrue(captor.getValue().getSqlSet().contains("archived = 1 - archived"));
@@ -233,10 +229,9 @@ class ToolItemServiceImplTest extends ContainerlessTestBase {
             assertEquals(1, resp.getTotal());
             assertEquals(3, resp.getList().get(0).getQuantity());
 
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Page<ToolItemDO>> pageCaptor = ArgumentCaptor.forClass(Page.class);
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<LambdaQueryWrapper<ToolItemDO>> queryCaptor = ArgumentCaptor
+            @SuppressWarnings("unchecked") ArgumentCaptor<Page<ToolItemDO>> pageCaptor = ArgumentCaptor
+                .forClass(Page.class);
+            @SuppressWarnings("unchecked") ArgumentCaptor<LambdaQueryWrapper<ToolItemDO>> queryCaptor = ArgumentCaptor
                 .forClass(LambdaQueryWrapper.class);
             verify(mapper).selectPage(pageCaptor.capture(), queryCaptor.capture());
             assertEquals(1, pageCaptor.getValue().getCurrent());

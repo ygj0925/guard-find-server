@@ -62,8 +62,7 @@ class ImTransactionPagingTest {
     private final AppMessageService notices = mock(AppMessageService.class);
     private final ImWebSocketHandler ws = mock(ImWebSocketHandler.class);
     private final ObjectProvider<ImWebSocketHandler> wsProvider = provider();
-    private final ImServiceImpl service = new ImServiceImpl(conversations, messages,
-        mock(AppUserMapper.class), notices, adminMessages, wsProvider);
+    private final ImServiceImpl service = new ImServiceImpl(conversations, messages, mock(AppUserMapper.class), notices, adminMessages, wsProvider);
 
     @SuppressWarnings("unchecked")
     private static ObjectProvider<ImWebSocketHandler> provider() {
@@ -113,7 +112,7 @@ class ImTransactionPagingTest {
         when(conversations.selectOne(any())).thenReturn(conversation());
         when(wsProvider.getIfAvailable()).thenReturn(ws);
         Mockito.doAnswer(invocation -> {
-            ((ImMessageDO) invocation.getArgument(0)).setId(99L);
+            ((ImMessageDO)invocation.getArgument(0)).setId(99L);
             return 1;
         }).when(messages).insert(any(ImMessageDO.class));
 
@@ -125,8 +124,7 @@ class ImTransactionPagingTest {
             service.send(10L, "hello");
 
             verify(ws, never()).pushNewMessage(any(), any(), any(), any(), any());
-            TransactionSynchronizationManager.getSynchronizations()
-                .forEach(TransactionSynchronization::afterCommit);
+            TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
             verify(ws).pushNewMessage(2L, 10L, 1L, "hello", 99L);
         }
     }
@@ -136,7 +134,7 @@ class ImTransactionPagingTest {
         when(conversations.selectOne(any())).thenReturn(conversation());
         when(wsProvider.getIfAvailable()).thenReturn(ws);
         Mockito.doAnswer(invocation -> {
-            ((ImMessageDO) invocation.getArgument(0)).setId(99L);
+            ((ImMessageDO)invocation.getArgument(0)).setId(99L);
             return 1;
         }).when(messages).insert(any(ImMessageDO.class));
 
@@ -165,19 +163,18 @@ class ImTransactionPagingTest {
             assertEquals(2, service.messages(10L, null).size());
         }
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaQueryWrapper<ImMessageDO>> query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        @SuppressWarnings("unchecked") ArgumentCaptor<LambdaQueryWrapper<ImMessageDO>> query = ArgumentCaptor
+            .forClass(LambdaQueryWrapper.class);
         verify(messages).selectList(query.capture());
         assertTrue(query.getValue().getSqlSegment().contains("LIMIT 100"));
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaUpdateWrapper<ImMessageDO>> update = ArgumentCaptor.forClass(LambdaUpdateWrapper.class);
+        @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<ImMessageDO>> update = ArgumentCaptor
+            .forClass(LambdaUpdateWrapper.class);
         verify(messages).update(isNull(), update.capture());
         assertTrue(update.getValue().getSqlSegment().contains("sender_id"));
         assertTrue(update.getValue().getParamNameValuePairs().values().contains(2L));
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<UpdateWrapper<ImConversationDO>> decrement = ArgumentCaptor
+        @SuppressWarnings("unchecked") ArgumentCaptor<UpdateWrapper<ImConversationDO>> decrement = ArgumentCaptor
             .forClass(UpdateWrapper.class);
         verify(conversations).update(isNull(), decrement.capture());
         assertTrue(decrement.getValue().getSqlSet().contains("unread_a=GREATEST(0,unread_a-1)"));
@@ -199,13 +196,13 @@ class ImTransactionPagingTest {
             assertEquals(1, service.supportMessages(null).size());
         }
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<LambdaQueryWrapper<AdminMessageDO>> query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        @SuppressWarnings("unchecked") ArgumentCaptor<LambdaQueryWrapper<AdminMessageDO>> query = ArgumentCaptor
+            .forClass(LambdaQueryWrapper.class);
         verify(adminMessages).selectList(query.capture());
         assertTrue(query.getValue().getSqlSegment().contains("LIMIT 100"));
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<UpdateWrapper<AdminMessageDO>> update = ArgumentCaptor.forClass(UpdateWrapper.class);
+        @SuppressWarnings("unchecked") ArgumentCaptor<UpdateWrapper<AdminMessageDO>> update = ArgumentCaptor
+            .forClass(UpdateWrapper.class);
         verify(adminMessages).update(isNull(), update.capture());
         assertTrue(update.getValue().getSqlSegment().contains("id IN"));
     }
