@@ -4,7 +4,7 @@
 
 > 2026-11-11 逐项核对：勾选项均附实现位置或验证方式；"偏离"是实现与原文不同但经评估接受，
 > "缺口"是没做或只做了一部分，保持未勾选。单测指 `mvn -o -pl guard-find-server-system -am test -Dtests.skip=false`
-> （42 类 / 314 例，0 失败、0 错误，1 例联网用例默认跳过），不起容器、不连 MySQL/Redis。
+> （43 类 / 348 例，0 失败、0 错误，1 例联网用例默认跳过），Java 单测不起容器、不连 MySQL/Redis。
 > 2026-11-11 本轮全量执行加 `-Dspotless.apply.skip=true`，打包另按默认配置执行格式化。
 
 ## 1. 前置验证与工程基线
@@ -27,8 +27,8 @@
 - [x] 2.3 新建 `guardfind_moderation_table.sql`:`gf_report`、`gf_sensitive_word`、`gf_user_punishment`
 - [x] 2.4 新建 `guardfind_collect_table.sql`:`gf_collect_source`、`gf_collect_raw`、`gf_collect_candidate`、`gf_collect_log`、`gf_collect_erase_log`、`gf_case_source_link`
 - [x] 2.5 所有表补齐 `create_user/create_time/update_user/update_time/deleted` 审计列、`ENGINE=InnoDB utf8mb4`、表与列 `COMMENT`,并把业务唯一键包含 `deleted`(如 `uk_phone(phone,deleted)`、`uk_source(source_code,source_id,deleted)`、`uk_dedupe(dedupe_key,deleted)`)
-- [ ] 2.6 在 `db.changelog-master.yaml` 追加四个 include(建表在前、数据在后),并写 `postgresql/` 镜像文件(include 保持注释)
-  - master 里已按"建表在前、数据在后"加入 2 个 include。**缺口**：`postgresql/` 镜像没写，属于已记录的欠债（见验证报告 §2.6）。
+- [x] 2.6 在 `db.changelog-master.yaml` 追加四个 include(建表在前、数据在后),并写 `postgresql/` 镜像文件(include 保持注释)
+  - MySQL 仍是当前启用配置；PostgreSQL 的 `guardfind_business_table.sql`/`guardfind_business_data.sql` 镜像已补，2 个 include 按建表在前、数据在后加入注释块。完整保留当前 45 个建表 changeset、60 张表、796 列、169 索引及 4 个数据 changeset；索引加表名前缀避免 PG 全局同名，BIT 仅转 bool、tinyint 保持整数，显式种子写入后校准 identity 序列。隔离 PGlite 0.5.16（PostgreSQL 18.6）执行基表/业务表/基数据/业务数据通过，逐列核对类型、默认值、可空性、注释与索引列/唯一性，并验证身份字典、真实源默认关闭、序列和 CHECK/软删唯一键。不是生产 PostgreSQL 或 Liquibase 启动验收，未切换部署。
 - [x] 2.7 新建 `guardfind_main_data.sql`:字典(`case_type`、`age_group`、`blood_sample_status`、`report_reason`、`punishment_type`、`identity_type`、`client_type` 增加 `APP`)、`sys_client` 的 `APP` 行、`gf_sensitive_word` 初始词库、举报与处置类菜单
   - 数据合并在 `guardfind_business_data.sql`：`gf_case_type`、`gf_age_group`、`gf_blood_sample_status`、`gf_report_reason`、`gf_punishment_type`（另加 `gf_body_type`、`gf_reject_reason`、`gf_relation_type`）、`client_type.APP`、App 客户端、敏感词及治理菜单均已存在。2026-11-11 追加独立 changeset `identity-type-dictionary-1`，新增 `gf_identity_type` 的 GUARDIAN/VOLUNTEER/PUBLIC，与 `IdentityTypeEnum` 一致，不改旧 changeset。字典本身不授予志愿者权限；本轮仅静态核对 SQL，未对真实库执行此增量。
 - [x] 2.8 把全部 `gf_*` 表登记进 `application.yml` 的 `continew-starter.tenant.ignore-tables`
@@ -61,7 +61,7 @@
 - [ ] 4.8 媒体上传限制校验(≤9 张、单张 ≤5MB、类型白名单),采集来源图片本地化到自有存储
   - 已有：张数和类型白名单（`CaseSubmitValidator`），单张大小限制（`AppFileController`）。**缺口**：候选审批时没有把采集来源的照片复制到自有存储，`CollectCandidateDO` 的注释写了"审批时本地化"，但没实现。
 - [x] 4.9 单测:非法跃迁被拒、缺体貌字段提交失败、重复检测需 `forceSubmit`、状态日志与版本序号递增、`ERASED` 后读接口不可见、紧急标记规则
-  - `CaseRulesTest`（9 例）覆盖状态机、提交校验及紧急标记的精确 72 小时边界；`CaseServiceImplTest`（15 例）覆盖重复检测 4005 且无写入、forceSubmit、两次提交的版本 1/2 与真实状态服务日志编排、快照电话掩码、所有不可见状态同 404、PUBLISHED/FOUND 仍可见。standalone MockMvc 验证真实控制器和异常处理器返回 HTTP 200、信封 `code="404"`。Mapper mock，不验证真实事务或并发。
+  - `CaseRulesTest`（9 例）覆盖状态机、提交校验及紧急标记的精确 72 小时边界；`CaseServiceImplTest`（16 例）覆盖重复检测 4005 且无写入、forceSubmit、两次提交的版本 1/2 与真实状态服务日志编排、快照电话掩码、所有不可见状态同 404、PUBLISHED/FOUND 仍可见。standalone MockMvc 验证真实控制器和异常处理器返回 HTTP 200、信封 `code="404"`。Mapper mock，不验证真实事务或并发。
 
 ## 5. 广场与搜索
 
@@ -86,7 +86,7 @@
 - [x] 6.6 `GET /system/moderation/pending`、`/{id}/approve`、`/{id}/reject`(理由码必填)、`/report/{id}/handle`;`@SaCheckPermission` 与 `@Log` 配置
   - 路由实际是 `/{bizType}/{id}/approve|reject`，以便同时覆盖档案与线索两类审核对象。
 - [ ] 6.7 单测:重复举报合并、命中词库拒绝、FRAUD 标高风险、非所有人无法处置线索、审核通过后台广场可见
-  - 已覆盖：词库拒绝、FRAUD 高风险、最坏类别及拆字规避（`SensitiveWordTrieTest`，5 例）；越权查看线索（`LeadServiceImplTest`）；重复举报合并（`ReportServiceImplTest`，18 例）：同人同目标过滤、初次 insert、重复仅更新原 ID/次数并保留首个理由、不同人/目标/类型不误合并、校验失败不写入、顺序重复恰好达阈值仅抬升一次。**缺口**：非所有人的线索处置权限及审核后进入广场仍未专门测试；举报测试不证明数据库并发或唯一键。
+  - 已覆盖：词库拒绝、FRAUD 高风险、最坏类别及拆字规避（`SensitiveWordTrieTest`，5 例）；重复举报合并（`ReportServiceImplTest`，18 例）。`LeadServiceImplTest`（22 例）覆盖查看权限、陌生人/已认证非所有人志愿者无法处置或回复且无写入/风控/通知、本人三种合法处置、回复审计与返回 ID、非法状态/内容及缺提交人不发通知。`ModerationServiceImplTest`（14 例）使用真实状态服务验证发布状态/轨迹/审计、仅通知 App owner、非法跃迁/重复审核/无后台身份不写入。`CaseServiceImplTest` 增加审核前同 404、审核后公开详情可见且状态符合实际 latest Wrapper 的 PUBLISHED 条件。**缺口**：审核后真实 MySQL 广场结果仍未实测，故保留未勾；这些测试不证明数据库事务或并发唯一键。
 
 ## 7. C 端通知
 
@@ -133,7 +133,7 @@
 
 - [x] 9.1 `mvn -B -DskipTests package` 通过(接受 spotless 改写,提交格式化结果)
 - [x] 9.2 新增单测全部通过并记录执行命令与用例数
-  - 命令和用例数见本文件顶部说明，以及验证报告 §11。
+  - 命令和用例数见本文件顶部说明，以及验证报告 §12。
 - [ ] 9.3 对照 `guard-find-app` 的接口契约清单逐项核对路径、方法、请求/响应字段与错误码,差异以规格为准修正
   - 已核对并修正：响应码类型（验证报告 §5.2）、线索越权 `4003`、WS 端点与关闭码、不可见详情 `404`；重复提交检测 `4005` 已由 `CaseServiceImplTest` 证明。**缺口**：尚未全量逐字段核对，也未逐分支验证其余业务码，不能把所有通用校验异常都当成已接入业务码。
 - [x] 9.4 出一份"实机验证 / 静态检查"分离的验证报告,未验证项显式标注(含采集真实联网、WebSocket 三端实机)

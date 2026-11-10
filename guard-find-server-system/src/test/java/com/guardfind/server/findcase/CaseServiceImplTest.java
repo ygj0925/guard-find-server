@@ -43,8 +43,22 @@ import com.guardfind.server.findcase.service.ContentCheckGateway;
 import com.guardfind.server.findcase.service.impl.CaseServiceImpl;
 import com.guardfind.server.findcase.service.impl.CaseStatusServiceImpl;
 import com.guardfind.server.findcase.support.CaseViewAssembler;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.guardfind.server.app.mapper.AppUserMapper;
+import com.guardfind.server.common.context.UserContextHolder;
+import com.guardfind.server.findcase.mapper.SearchHistoryMapper;
+import com.guardfind.server.findcase.model.query.CaseFeedQuery;
+import com.guardfind.server.findcase.support.RegionRepository;
+import com.guardfind.server.lead.mapper.LeadMapper;
+import com.guardfind.server.moderation.enums.ModerationBizTypeEnum;
+import com.guardfind.server.moderation.mapper.ReportMapper;
+import com.guardfind.server.moderation.mapper.UserPunishmentMapper;
+import com.guardfind.server.moderation.service.impl.ModerationServiceImpl;
+import com.guardfind.server.plaza.mapper.PlazaStatMapper;
+import com.guardfind.server.plaza.service.impl.PlazaServiceImpl;
 import com.guardfind.server.notification.service.AppMessageService;
 import com.guardfind.server.support.ContainerlessTestBase;
+import com.guardfind.server.system.service.DictItemService;
 import com.guardfind.server.system.service.FileService;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
@@ -195,6 +209,32 @@ class CaseServiceImplTest extends ContainerlessTestBase {
             .containsExactly(CaseStatusEnum.DRAFT, CaseStatusEnum.REJECTED);
         assertThat(logs.getAllValues()).extracting(CaseStatusLogDO::getToStatus)
             .containsOnly(CaseStatusEnum.PENDING_REVIEW);
+    }
+
+    @Test
+    void approvalMakesCasePublicAndMatchesLatestFeedStatusFilter() {
+        FindCaseDO item = validCase();
+        item.setStatus(CaseStatusEnum.PENDING_REVIEW);
+        when(caseMapper.selectById(100L)).thenReturn(item);
+        assertUnavailable(() -> service.getPublic(100L));
+        var statuses = new CaseStatusServiceImpl(caseMapper, statusLogMapper, mock(FavoriteMapper.class), messages);
+        var moderation = new ModerationServiceImpl(caseMapper, mock(LeadMapper.class), mock(ReportMapper.class), mock(UserPunishmentMapper.class), mock(AppUserMapper.class), statuses, messages, mock(DictItemService.class));
+        try (var context = mockStatic(UserContextHolder.class)) {
+            context.when(UserContextHolder::getUserId).thenReturn(90L);
+            moderation.approve(ModerationBizTypeEnum.CASE, 100L, null);
+        }
+        when(caseMapper.lambdaUpdate()).thenReturn(new LambdaUpdateChainWrapper<>(caseMapper));
+        var response = new CasePublicResp();
+        when(assembler.toPublic(item)).thenReturn(response);
+        assertThat(service.getPublic(100L)).isSameAs(response);
+        var plaza = new PlazaServiceImpl(caseMapper, mock(FindCaseAliasMapper.class), mock(SearchHistoryMapper.class), tracks, mock(PlazaStatMapper.class), assembler, mock(RegionRepository.class), mock(DictItemService.class), mock(ContentCheckGateway.class));
+        when(caseMapper.selectList(any())).thenReturn(List.of());
+        plaza.feed(new CaseFeedQuery());
+        var query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        verify(caseMapper).selectList(query.capture());
+        assertThat(query.getValue().getSqlSegment()).contains("status IN");
+        assertThat(query.getValue().getParamNameValuePairs().values()).containsExactly(item.getStatus());
+        assertThat(item.getStatus()).isEqualTo(CaseStatusEnum.PUBLISHED);
     }
 
     private void prepareSubmission(FindCaseDO item) {
