@@ -22,6 +22,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.guardfind.server.app.context.AppUserContextHolder;
+import com.guardfind.server.app.exception.AppBizException;
 import com.guardfind.server.app.mapper.AppUserMapper;
 import com.guardfind.server.app.model.entity.AppUserDO;
 import com.guardfind.server.findcase.enums.CaseStatusEnum;
@@ -148,7 +149,9 @@ public class LeadServiceImpl implements LeadService {
         FindCaseDO caseDO = findCaseMapper.selectById(caseId);
         CheckUtils.throwIfNull(caseDO, "该信息不存在或已下架");
         boolean isOwner = Objects.equals(caseDO.getOwnerId(), userId);
-        CheckUtils.throwIf(!isOwner && !AppUserContextHolder.isVolunteer(), "仅档案发布人与已认证志愿者可查看该档案的线索");
+        if (!isOwner && !AppUserContextHolder.isVolunteer()) {
+            throw new AppBizException(AppBizException.RULE_REJECTED, "仅档案发布人与已认证志愿者可查看该档案的线索");
+        }
         LambdaQueryWrapper<LeadDO> wrapper = Wrappers.<LeadDO>lambdaQuery()
             .eq(LeadDO::getCaseId, caseId)
             .orderByDesc(LeadDO::getCreateTime)
