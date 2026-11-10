@@ -158,7 +158,7 @@ public class RobotsDecision implements Serializable {
     private static String longestMatch(List<String> prefixes, String path) {
         String best = null;
         for (String prefix : prefixes) {
-            if (StrUtil.isEmpty(prefix) || "/".equals(prefix)) {
+            if (StrUtil.isEmpty(prefix)) {
                 continue;
             }
             if (matches(path, prefix) && (best == null || prefix.length() > best.length())) {
@@ -169,11 +169,13 @@ public class RobotsDecision implements Serializable {
     }
 
     /**
-     * robots 通配规则：{@code *} 匹配任意串，结尾 {@code $} 表示精确匹配
+     * robots 通配规则：规则是路径前缀，{@code *} 匹配任意串，结尾 {@code $} 表示锚定到路径末尾
      */
     private static boolean matches(String path, String rule) {
-        String regex = ("\\Q" + rule.replace("$", "") + "\\E").replace("*", "\\E.*\\Q");
-        String target = rule.endsWith("$") ? path : StrUtil.subBefore(path, "?", false);
-        return rule.endsWith("$") ? target.matches(regex + "$") : target.matches(regex);
+        boolean anchored = rule.endsWith("$");
+        String body = anchored ? rule.substring(0, rule.length() - 1) : rule;
+        String regex = ("\\Q" + body + "\\E").replace("*", "\\E.*\\Q");
+        String target = StrUtil.subBefore(path, "?", false);
+        return target.matches(anchored ? regex : regex + ".*");
     }
 }
