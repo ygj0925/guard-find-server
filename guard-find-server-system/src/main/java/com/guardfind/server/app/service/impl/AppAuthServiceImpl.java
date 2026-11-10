@@ -58,12 +58,14 @@ import com.guardfind.server.app.util.StpAppUtil;
 import com.guardfind.server.auth.enums.AuthTypeEnum;
 import com.guardfind.server.common.config.CaptchaProperties;
 import com.guardfind.server.common.constant.CacheConstants;
+import com.guardfind.server.common.constant.GlobalConstants;
 import com.guardfind.server.common.context.UserExtraContext;
 import com.guardfind.server.common.enums.DisEnableStatusEnum;
 import com.guardfind.server.system.enums.PasswordPolicyEnum;
 import com.guardfind.server.system.model.entity.SmsConfigDO;
 import com.guardfind.server.system.model.resp.ClientResp;
 import com.guardfind.server.system.service.ClientService;
+import com.guardfind.server.system.service.OptionService;
 import com.guardfind.server.system.service.SmsConfigService;
 import top.continew.starter.cache.redisson.util.RedisUtils;
 import top.continew.starter.core.exception.BaseException;
@@ -103,6 +105,7 @@ public class AppAuthServiceImpl implements AppAuthService {
     private final PasswordEncoder passwordEncoder;
     private final com.guardfind.server.app.oauth.WechatMiniappService wechatMiniappService;
     private final com.guardfind.server.app.oauth.OAuthBindingService oauthBindingService;
+    private final OptionService optionService;
 
     @Override
     public AppSmsCodeResp sendSmsCode(AppSmsCodeReq req, HttpServletRequest request) {
@@ -314,6 +317,10 @@ public class AppAuthServiceImpl implements AppAuthService {
         Integer cacheErrorCount = RedisUtils.get(AppAuthConstants.appSmsCodeErrorKey(phone));
         int errorCount = ObjectUtil.defaultIfNull(cacheErrorCount, 0);
         if (errorCount < AppAuthConstants.SMS_CODE_ERROR_CAPTCHA_THRESHOLD) {
+            return;
+        }
+        // 与 /captcha/image 同一开关:关闭时取图接口不下发图片,若仍强制校验,用户将无法登录
+        if (!GlobalConstants.Boolean.YES.equals(optionService.getValueByCode2Int("LOGIN_CAPTCHA_ENABLED"))) {
             return;
         }
         ValidationUtils.throwIfBlank(req.getCaptchaId(), "请输入图形验证码");

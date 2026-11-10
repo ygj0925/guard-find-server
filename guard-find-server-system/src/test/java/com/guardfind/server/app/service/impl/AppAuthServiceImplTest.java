@@ -30,6 +30,7 @@ import com.guardfind.server.common.config.CaptchaProperties;
 import com.guardfind.server.common.enums.DisEnableStatusEnum;
 import com.guardfind.server.system.model.resp.ClientResp;
 import com.guardfind.server.system.service.ClientService;
+import com.guardfind.server.system.service.OptionService;
 import com.guardfind.server.system.service.SmsConfigService;
 import com.guardfind.server.support.ContainerlessTestBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,6 +92,8 @@ class AppAuthServiceImplTest extends ContainerlessTestBase {
     private SmsConfigService smsConfigService;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private OptionService optionService;
 
     private AppAuthServiceImpl appAuthService;
 
@@ -99,7 +102,52 @@ class AppAuthServiceImplTest extends ContainerlessTestBase {
         // authenticate / doSendSmsCode 分别依赖 Sa-Token 与短信通道，测试中以 spy 打桩隔离
         appAuthService = spy(new AppAuthServiceImpl(appUserService, clientService, captchaProperties, smsConfigService, passwordEncoder, org.mockito.Mockito
             .mock(com.guardfind.server.app.oauth.WechatMiniappService.class), org.mockito.Mockito
-                .mock(com.guardfind.server.app.oauth.OAuthBindingService.class)));
+                .mock(com.guardfind.server.app.oauth.OAuthBindingService.class), optionService));
+    }
+
+    @Test
+    @DisplayName("图形验证码：连续错误达阈值后按 captchaId 取缓存校验并一次性消费")
+    void graphicCaptchaShouldVerifyByCaptchaIdAfterThreshold() {
+        when(optionService.getValueByCode2Int("LOGIN_CAPTCHA_ENABLED")).thenReturn(1);
+        Map<String, Object> cache = new HashMap<>();
+        cache.put(SMS_CODE_ERROR_KEY, 3);
+        cache.put("CAPTCHA:uuid-1", "ab12");
+        AppPhoneLoginReq req = buildPhoneLoginReq("123456");
+        req.setCaptchaId("uuid-1");
+        req.setCaptchaValue("AB12");
+        try (MockedStatic<RedisUtils> redis = mockStatic(RedisUtils.class)) {
+            stubCache(redis, cache);
+            assertThatNoException().isThrownBy(() -> appAuthService.checkGraphicCaptcha(PHONE, req));
+            assertThat(cache).doesNotContainKey("CAPTCHA:uuid-1");
+        }
+    }
+
+    @Test
+    @DisplayName("图形验证码：达阈值且开关开启时缺 captchaId 拒绝")
+    void graphicCaptchaShouldRejectMissingIdAfterThreshold() {
+        when(optionService.getValueByCode2Int("LOGIN_CAPTCHA_ENABLED")).thenReturn(1);
+        Map<String, Object> cache = new HashMap<>();
+        cache.put(SMS_CODE_ERROR_KEY, 3);
+        AppPhoneLoginReq req = buildPhoneLoginReq("123456");
+        req.setCaptchaValue("ab12");
+        try (MockedStatic<RedisUtils> redis = mockStatic(RedisUtils.class)) {
+            stubCache(redis, cache);
+            assertThatExceptionOfType(BadRequestException.class).isThrownBy(() -> appAuthService
+                .checkGraphicCaptcha(PHONE, req)).withMessage("请输入图形验证码");
+        }
+    }
+
+    @Test
+    @DisplayName("图形验证码：后台关闭验证码开关时不再强制，避免取不到图而无法登录")
+    void graphicCaptchaShouldBeSkippedWhenDisabled() {
+        when(optionService.getValueByCode2Int("LOGIN_CAPTCHA_ENABLED")).thenReturn(0);
+        Map<String, Object> cache = new HashMap<>();
+        cache.put(SMS_CODE_ERROR_KEY, 5);
+        try (MockedStatic<RedisUtils> redis = mockStatic(RedisUtils.class)) {
+            stubCache(redis, cache);
+            assertThatNoException().isThrownBy(() -> appAuthService
+                .checkGraphicCaptcha(PHONE, buildPhoneLoginReq("123456")));
+        }
     }
 
     @Test
