@@ -19,6 +19,24 @@ mvn -B -Dspotless.apply.skip=true -DskipTests package
 
 主服务默认使用 `dev` profile；部署时通过 `DB_*`、`REDIS_*`、`SCHEDULE_*` 等环境变量提供基础设施连接参数。默认构建为 thin jar，产物位于 `guard-find-server-api/target/app/`。
 
+## 单元测试
+
+```powershell
+mvn -o -pl guard-find-server-system -am test -Dtests.skip=false
+```
+
+单测不起 Spring 容器、不连 MySQL/Redis（`ContainerlessTestBase`）。采集链路默认只用仓库内 fixture，不发起任何外部请求。
+
+### 真实采集源联网测试（默认不执行）
+
+`RangAiHuiJiaLiveTest` 会对 `rangaihuijia.com` 真实发出 robots、列表第 1 页与 1 条详情共 3 次请求（同域间隔 2 秒，不落库）。**前置条件：已取得站方书面授权或法务确认**，与 `gf_collect_source.enabled` 的开启条件相同。确认后才显式执行：
+
+```powershell
+mvn -o -pl guard-find-server-system -am test -Dtests.skip=false -Dtest=RangAiHuiJiaLiveTest -Dsurefire.failIfNoSpecifiedTests=false -Dcollect.live=true
+```
+
+未带 `-Dcollect.live=true` 时该用例被跳过；robots 禁止或不可达时用例失败而不是放行。
+
 ## 容器部署
 
 `docker/docker-compose.yml` 的 Compose 项目名为 `guard-find-server`，服务均采用 `guard-find-server-*` 前缀：MySQL 映射 `13306`、Redis 映射 `16379`、API 映射 `18000/17889`，独立调度服务映射 `18001/17888`。部署前需将构建输出复制到相应 Docker build context，并填入密码和生产环境配置。
