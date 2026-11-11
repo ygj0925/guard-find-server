@@ -181,7 +181,7 @@ public class CaseViewAssembler {
             return Collections.emptyMap();
         }
         List<Long> operatorIds = statusLogs.stream()
-            .filter(log -> !CaseOperatorTypeEnum.SYSTEM.name().equals(log.getOperatorType()))
+            .filter(log -> CaseOperatorTypeEnum.APP.name().equals(log.getOperatorType()))
             .map(CaseStatusLogDO::getOperatorId)
             .filter(Objects::nonNull)
             .distinct()

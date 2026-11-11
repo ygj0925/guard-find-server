@@ -16,6 +16,8 @@
 
 package com.guardfind.server.lead.model.resp;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.guardfind.server.lead.enums.LeadReplyFromEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
@@ -41,6 +43,7 @@ public class LeadReplyResp implements Serializable {
      * 回复 ID
      */
     @Schema(description = "回复 ID", example = "1802000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

@@ -19,6 +19,7 @@ package com.guardfind.server.notification.model.req;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -46,5 +47,5 @@ public class PreferenceUpdateReq implements Serializable {
     @NotEmpty(message = "请至少设置一项通知偏好")
     @Size(max = 20, message = "单次最多设置 {max} 项通知偏好")
     @Schema(description = "偏好项列表")
-    private List<PreferenceItemReq> items;
+    private List<@NotNull(message = "通知偏好项不能为空") PreferenceItemReq> items;
 }

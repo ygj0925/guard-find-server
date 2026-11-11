@@ -16,6 +16,8 @@
 
 package com.guardfind.server.notification.model.resp;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -45,6 +47,7 @@ public class AppMessageResp implements Serializable {
      * 消息 ID
      */
     @Schema(description = "消息 ID", example = "1810000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**
@@ -75,6 +78,7 @@ public class AppMessageResp implements Serializable {
      * 业务 ID
      */
     @Schema(description = "业务 ID", example = "1790000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long bizId;
 
     /**

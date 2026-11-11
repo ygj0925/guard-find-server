@@ -62,7 +62,7 @@ public enum NotificationEventEnum {
     /**
      * 举报处理结果
      */
-    REPORT_RESULT("举报处理结果", "SYSTEM", false, false, "/me/messages"),
+    REPORT_RESULT("举报处理结果", "SYSTEM", false, false, "/message"),
 
     /**
      * 采集候选经审批正式发布
@@ -75,7 +75,7 @@ public enum NotificationEventEnum {
     /**
      * 系统消息
      */
-    SYSTEM("系统消息", "SYSTEM", true, false, "/me/messages");
+    SYSTEM("系统消息", "SYSTEM", true, false, "/message");
 
     private final String label;
     private final String category;

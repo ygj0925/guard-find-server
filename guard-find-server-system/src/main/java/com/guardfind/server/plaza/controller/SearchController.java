@@ -24,6 +24,7 @@ import com.guardfind.server.plaza.service.PlazaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,7 +60,7 @@ public class SearchController {
     @Parameter(name = "keyword", description = "关键词", example = "张三")
     @RateLimiter(name = "APP:SEARCH", rate = 30, interval = 1, unit = TimeUnit.MINUTES, type = LimitType.IP, message = "搜索过于频繁，请稍后再试")
     @GetMapping
-    public FeedCursorResp<CasePublicResp> search(CaseFeedQuery query) {
+    public FeedCursorResp<CasePublicResp> search(@Valid CaseFeedQuery query) {
         return plazaService.search(query);
     }
 

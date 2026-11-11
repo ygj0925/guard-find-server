@@ -16,6 +16,8 @@
 
 package com.guardfind.server.app.model.resp;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -44,6 +46,7 @@ public class AppUserResp implements Serializable {
      * 用户 ID
      */
     @Schema(description = "用户 ID", example = "1789000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

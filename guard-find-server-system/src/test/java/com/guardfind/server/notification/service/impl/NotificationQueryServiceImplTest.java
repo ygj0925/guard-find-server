@@ -23,27 +23,37 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.guardfind.server.common.config.exception.GlobalExceptionHandler;
+import com.guardfind.server.notification.enums.NotificationEventEnum;
 import com.guardfind.server.notification.mapper.AppMessageMapper;
 import com.guardfind.server.notification.mapper.PreferenceMapper;
 import com.guardfind.server.notification.model.entity.AppMessageDO;
+import com.guardfind.server.notification.model.entity.PreferenceDO;
 import com.guardfind.server.notification.model.query.AppMessageQuery;
+import com.guardfind.server.notification.model.req.PreferenceItemReq;
+import com.guardfind.server.notification.model.req.PreferenceUpdateReq;
 import com.guardfind.server.notification.service.AppMessageService;
 import com.guardfind.server.notification.service.NotificationRealtimeService;
 import com.guardfind.server.notification.service.NotificationSmsService;
 import com.guardfind.server.support.ContainerlessTestBase;
+import jakarta.validation.Validation;
+import jakarta.validation.constraints.NotNull;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.mock.web.MockHttpServletRequest;
 import top.continew.starter.core.exception.BadRequestException;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,6 +79,8 @@ class NotificationQueryServiceImplTest extends ContainerlessTestBase {
     void setUp() {
         TableInfoHelper
             .initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), AppMessageDO.class);
+        TableInfoHelper
+            .initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), "test"), PreferenceDO.class);
         messageMapper = mock(AppMessageMapper.class);
         preferenceMapper = mock(PreferenceMapper.class);
         service = new NotificationQueryServiceImpl(messageMapper, preferenceMapper, mock(AppMessageService.class));
@@ -219,36 +231,180 @@ class NotificationQueryServiceImplTest extends ContainerlessTestBase {
     }
 
     @Test
-    @DisplayName("全部标记只选本人未读 ID，按最早时间限 500 条，更新仍约束本人和未读")
-    void markAllReadUsesBoundedOwnUnreadBatch() {
-        List<AppMessageDO> batch = LongStream.rangeClosed(1001, 1500).mapToObj(id -> message(id, 7L, false)).toList();
-        when(messageMapper.selectList(any())).thenReturn(batch);
-        when(messageMapper.update(isNull(), any())).thenReturn(500);
+    @DisplayName("全部标记只更新一次本人全部未读消息，无 ID 批次或 500 上限，返回实际 650 条")
+    void markAllReadUpdatesAllOwnUnreadMessages() {
+        when(messageMapper.update(isNull(), any())).thenReturn(650);
+        LocalDateTime before = LocalDateTime.now();
 
-        assertThat(service.markAllRead(7L).getMarkedCount()).isEqualTo(500);
+        assertThat(service.markAllRead(7L).getMarkedCount()).isEqualTo(650);
 
-        ArgumentCaptor<LambdaQueryWrapper<AppMessageDO>> selectCaptor = queryCaptor();
-        ArgumentCaptor<LambdaUpdateWrapper<AppMessageDO>> updateCaptor = updateCaptor();
-        verify(messageMapper).selectList(selectCaptor.capture());
-        verify(messageMapper).update(isNull(), updateCaptor.capture());
-        assertUnreadScope(selectCaptor.getValue());
-        assertThat(selectCaptor.getValue().getSqlSelect()).isEqualTo("id");
-        assertThat(selectCaptor.getValue().getSqlSegment()).contains("ORDER BY create_time ASC").endsWith("LIMIT 500");
-        assertReadUpdate(updateCaptor.getValue(), batch.stream().map(AppMessageDO::getId).toList());
+        LocalDateTime after = LocalDateTime.now();
+        ArgumentCaptor<LambdaUpdateWrapper<AppMessageDO>> captor = updateCaptor();
+        verify(messageMapper).update(isNull(), captor.capture());
+        assertAllReadUpdate(captor.getValue(), before, after);
         verifyNoMoreInteractions(messageMapper);
+        verifyNoInteractions(preferenceMapper);
     }
 
     @Test
-    @DisplayName("全部标记的未读批次为空时返回零，不产生更新")
-    void markAllReadSkipsEmptyBatch() {
-        when(messageMapper.selectList(any())).thenReturn(List.of());
+    @DisplayName("全部标记更新零行时返回零，仍只执行一次 UPDATE，不预先查询")
+    void markAllReadReturnsZeroFromSingleUpdate() {
+        when(messageMapper.update(isNull(), any())).thenReturn(0);
+        LocalDateTime before = LocalDateTime.now();
 
         assertThat(service.markAllRead(7L).getMarkedCount()).isZero();
 
-        ArgumentCaptor<LambdaQueryWrapper<AppMessageDO>> captor = queryCaptor();
-        verify(messageMapper).selectList(captor.capture());
-        assertUnreadScope(captor.getValue());
+        LocalDateTime after = LocalDateTime.now();
+        ArgumentCaptor<LambdaUpdateWrapper<AppMessageDO>> captor = updateCaptor();
+        verify(messageMapper).update(isNull(), captor.capture());
+        assertAllReadUpdate(captor.getValue(), before, after);
         verifyNoMoreInteractions(messageMapper);
+        verifyNoInteractions(preferenceMapper);
+    }
+
+    @Test
+    @DisplayName("有效项之后的 null 偏好项在任何 Mapper 访问前被业务 400 拒绝")
+    void updatePreferenceRejectsNullItemBeforeMapperAccess() {
+        PreferenceUpdateReq req = preferenceRequest(preferenceItem("CASE_LEAD", true, false), null);
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service
+            .updatePreference(req, 7L));
+
+        assertThat(exception).hasMessage("通知偏好项不能为空");
+        assertBadRequestCode(exception);
+        verifyNoInteractions(messageMapper, preferenceMapper);
+    }
+
+    @Test
+    @DisplayName("CASE_LEAD 与 case_lead 归一后重复，在任何 Mapper 访问前被业务 400 拒绝")
+    void updatePreferenceRejectsCaseInsensitiveDuplicatesBeforeMapperAccess() {
+        PreferenceUpdateReq req = preferenceRequest(preferenceItem("CASE_LEAD", true, false), preferenceItem("case_lead", false, true));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service
+            .updatePreference(req, 7L));
+
+        assertThat(exception).hasMessage("通知类型 [CASE_LEAD] 不能重复");
+        assertBadRequestCode(exception);
+        verifyNoInteractions(messageMapper, preferenceMapper);
+    }
+
+    @Test
+    @DisplayName("DTO 校验拒绝列表 null 元素，合法项的 null 短信开关不违反约束")
+    void preferenceRequestValidatesNullElementsButAllowsNullSms() {
+        PreferenceItemReq validItem = preferenceItem("CASE_LEAD", true, null);
+        try (var factory = Validation.buildDefaultValidatorFactory()) {
+            var validator = factory.getValidator();
+
+            assertThat(validator.validate(preferenceRequest(validItem))).isEmpty();
+            var violations = validator.validate(preferenceRequest(validItem, null));
+            assertThat(violations).hasSize(1);
+            var violation = violations.iterator().next();
+            assertThat(violation.getPropertyPath().toString()).isEqualTo("items[1].<list element>");
+            assertThat(violation.getConstraintDescriptor().getAnnotation()).isInstanceOf(NotNull.class);
+            assertThat(violation.getMessage()).isEqualTo("通知偏好项不能为空");
+        }
+        verifyNoInteractions(messageMapper, preferenceMapper);
+    }
+
+    @Test
+    @DisplayName("新增合法偏好时归一类型、允许关闭非强制站内信，null 短信存为 false")
+    void updatePreferenceInsertsNullSmsAsFalse() {
+        when(preferenceMapper.selectList(any())).thenReturn(List.of());
+        LocalDateTime before = LocalDateTime.now();
+
+        service.updatePreference(preferenceRequest(preferenceItem(" case_lead ", false, null)), 7L);
+
+        LocalDateTime after = LocalDateTime.now();
+        ArgumentCaptor<PreferenceDO> captor = ArgumentCaptor.forClass(PreferenceDO.class);
+        verify(preferenceMapper).selectList(any());
+        verify(preferenceMapper).insert(captor.capture());
+        PreferenceDO inserted = captor.getValue();
+        assertThat(inserted.getUserId()).isEqualTo(7L);
+        assertThat(inserted.getType()).isEqualTo("CASE_LEAD");
+        assertThat(inserted.getInboxEnabled()).isFalse();
+        assertThat(inserted.getSmsEnabled()).isFalse();
+        assertThat(inserted.getCreateUser()).isEqualTo(7L);
+        assertThat(inserted.getUpdateUser()).isEqualTo(7L);
+        assertThat(inserted.getCreateTime()).isBetween(before, after);
+        assertThat(inserted.getUpdateTime()).isEqualTo(inserted.getCreateTime());
+        verifyNoMoreInteractions(preferenceMapper);
+        verifyNoInteractions(messageMapper);
+    }
+
+    @Test
+    @DisplayName("已有偏好原短信开启时，合法请求的 null 短信仍覆盖为 false")
+    void updatePreferenceOverwritesEnabledSmsWithFalseForNull() {
+        PreferenceDO existing = new PreferenceDO();
+        existing.setId(91L);
+        existing.setUserId(7L);
+        existing.setType("CASE_LEAD");
+        existing.setInboxEnabled(true);
+        existing.setSmsEnabled(true);
+        when(preferenceMapper.selectList(any())).thenReturn(List.of(existing));
+        LocalDateTime before = LocalDateTime.now();
+
+        service.updatePreference(preferenceRequest(preferenceItem("case_lead", false, null)), 7L);
+
+        LocalDateTime after = LocalDateTime.now();
+        @SuppressWarnings("unchecked") ArgumentCaptor<LambdaUpdateWrapper<PreferenceDO>> captor = ArgumentCaptor
+            .forClass(LambdaUpdateWrapper.class);
+        verify(preferenceMapper).selectList(any());
+        verify(preferenceMapper).update(isNull(), captor.capture());
+        LambdaUpdateWrapper<PreferenceDO> wrapper = captor.getValue();
+        String sql = wrapper.getSqlSegment();
+        assertThat(boundValue(wrapper, sql, "id")).isEqualTo(91L);
+        assertThat(boundValue(wrapper, sql, "user_id")).isEqualTo(7L);
+        assertThat(sql).doesNotContain(" OR ");
+        String sqlSet = wrapper.getSqlSet();
+        assertThat(boundValue(wrapper, sqlSet, "inbox_enabled")).isEqualTo(false);
+        assertThat(boundValue(wrapper, sqlSet, "sms_enabled")).isEqualTo(false);
+        assertThat(boundValue(wrapper, sqlSet, "update_user")).isEqualTo(7L);
+        assertThat((LocalDateTime)boundValue(wrapper, sqlSet, "update_time")).isBetween(before, after);
+        verifyNoMoreInteractions(preferenceMapper);
+        verifyNoInteractions(messageMapper);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = NotificationEventEnum.class, names = {"CASE_APPROVED", "CASE_REJECTED", "SYSTEM"})
+    @DisplayName("强制通知仍不能关闭站内信，不写入偏好")
+    void updatePreferenceStillRejectsDisablingForcedInbox(NotificationEventEnum event) {
+        when(preferenceMapper.selectList(any())).thenReturn(List.of());
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () -> service
+            .updatePreference(preferenceRequest(preferenceItem(event.name(), false, null)), 7L));
+
+        assertThat(exception).hasMessage("「%s」为重要结果通知，不支持关闭站内信", event.getLabel());
+        assertBadRequestCode(exception);
+        verify(preferenceMapper).selectList(any());
+        verifyNoMoreInteractions(preferenceMapper);
+        verifyNoInteractions(messageMapper);
+    }
+
+    @Test
+    @DisplayName("举报结果与系统消息均跳转到 /message")
+    void systemEventsBuildMessagePath() {
+        assertThat(NotificationEventEnum.REPORT_RESULT.buildPath(7L)).isEqualTo("/message");
+        assertThat(NotificationEventEnum.SYSTEM.buildPath(7L)).isEqualTo("/message");
+    }
+
+    private static PreferenceItemReq preferenceItem(String type, boolean inbox, Boolean sms) {
+        PreferenceItemReq item = new PreferenceItemReq();
+        item.setType(type);
+        item.setInboxEnabled(inbox);
+        item.setSmsEnabled(sms);
+        return item;
+    }
+
+    private static PreferenceUpdateReq preferenceRequest(PreferenceItemReq... items) {
+        PreferenceUpdateReq req = new PreferenceUpdateReq();
+        req.setItems(Arrays.asList(items));
+        return req;
+    }
+
+    private static void assertBadRequestCode(BadRequestException exception) {
+        var response = new GlobalExceptionHandler()
+            .handleBadRequestException(exception, new MockHttpServletRequest("PUT", "/app/notification/preference"));
+        assertThat(new ObjectMapper().valueToTree(response).path("code").asText()).isEqualTo("400");
     }
 
     private static AppMessageDO message(Long id, Long receiverId, boolean readStatus) {
@@ -276,6 +432,17 @@ class NotificationQueryServiceImplTest extends ContainerlessTestBase {
         assertThat(sql).doesNotContain(" OR ");
     }
 
+    private static void assertAllReadUpdate(LambdaUpdateWrapper<AppMessageDO> wrapper,
+                                            LocalDateTime before,
+                                            LocalDateTime after) {
+        assertUnreadScope(wrapper);
+        String sql = wrapper.getSqlSegment();
+        assertThat(sql).doesNotContain(" IN ", "LIMIT", "ORDER BY").doesNotContainPattern("\\bid\\b");
+        assertThat(wrapper.getParamNameValuePairs()).hasSize(6);
+        assertReadAudit(wrapper);
+        assertThat((LocalDateTime)boundValue(wrapper, wrapper.getSqlSet(), "read_time")).isBetween(before, after);
+    }
+
     private static void assertReadUpdate(LambdaUpdateWrapper<AppMessageDO> wrapper, List<Long> ids) {
         assertUnreadScope(wrapper);
         String sql = wrapper.getSqlSegment();
@@ -287,6 +454,10 @@ class NotificationQueryServiceImplTest extends ContainerlessTestBase {
             .map(match -> wrapper.getParamNameValuePairs().get(match.group(1)))
             .toList();
         assertThat(boundIds).containsExactlyElementsOf(ids);
+        assertReadAudit(wrapper);
+    }
+
+    private static void assertReadAudit(LambdaUpdateWrapper<AppMessageDO> wrapper) {
         String sqlSet = wrapper.getSqlSet();
         assertThat(boundValue(wrapper, sqlSet, "read_status")).isEqualTo(true);
         assertThat(boundValue(wrapper, sqlSet, "update_user")).isEqualTo(7L);
@@ -295,7 +466,7 @@ class NotificationQueryServiceImplTest extends ContainerlessTestBase {
         assertThat(boundValue(wrapper, sqlSet, "update_time")).isEqualTo(readTime);
     }
 
-    private static Object boundValue(AbstractWrapper<AppMessageDO, ?, ?> wrapper, String sql, String column) {
+    private static Object boundValue(AbstractWrapper<?, ?, ?> wrapper, String sql, String column) {
         Matcher matcher = Pattern.compile("\\b" + column + "\\s*=\\s*#\\{ew\\.paramNameValuePairs\\.([^}]+)\\}")
             .matcher(sql);
         assertThat(matcher.find()).as("SQL 必须绑定 %s: %s", column, sql).isTrue();

@@ -16,6 +16,8 @@
 
 package com.guardfind.server.moderation.model.resp;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.guardfind.server.moderation.enums.ReportStatusEnum;
 import com.guardfind.server.moderation.enums.ReportTargetTypeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -44,6 +46,7 @@ public class ReportResp implements Serializable {
      * 举报 ID
      */
     @Schema(description = "举报 ID", example = "1820000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**
@@ -56,6 +59,7 @@ public class ReportResp implements Serializable {
      * 目标 ID
      */
     @Schema(description = "目标 ID", example = "1790000000000000001")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long targetId;
 
     /**

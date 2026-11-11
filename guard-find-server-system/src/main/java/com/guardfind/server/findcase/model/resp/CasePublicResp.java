@@ -16,6 +16,8 @@
 
 package com.guardfind.server.findcase.model.resp;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.guardfind.server.findcase.enums.CaseStatusEnum;
 import com.guardfind.server.findcase.enums.UrgencyLevelEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -48,6 +50,7 @@ public class CasePublicResp implements Serializable {
      * 档案 ID
      */
     @Schema(description = "档案 ID", example = "1790000000000000000")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**

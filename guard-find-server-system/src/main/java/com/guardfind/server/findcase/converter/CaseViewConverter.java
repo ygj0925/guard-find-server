@@ -190,8 +190,8 @@ public final class CaseViewConverter {
 
     private static String resolveOperator(CaseStatusLogDO log, Map<Long, String> operatorNames) {
         CaseOperatorTypeEnum operatorType = CaseOperatorTypeEnum.of(log.getOperatorType());
-        if (operatorType == CaseOperatorTypeEnum.SYSTEM) {
-            return CaseOperatorTypeEnum.SYSTEM.getDescription();
+        if (operatorType != CaseOperatorTypeEnum.APP) {
+            return operatorType.getDescription();
         }
         String nickname = log.getOperatorId() == null ? null : operatorNames.get(log.getOperatorId());
         return StrUtil.blankToDefault(nickname, operatorType.getDescription());

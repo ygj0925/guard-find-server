@@ -43,12 +43,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import top.continew.starter.core.util.CollUtils;
 import top.continew.starter.core.util.validation.ValidationUtils;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,11 +65,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class NotificationQueryServiceImpl implements NotificationQueryService {
-
-    /**
-     * 单次全部标记已读的最大处理条数（超出部分留待下次请求，避免一次 UPDATE 锁住大量行）
-     */
-    private static final int MARK_ALL_BATCH_SIZE = 500;
 
     /**
      * 合法消息分组（由事件目录派生，不在代码里另立一套枚举）
@@ -125,18 +120,15 @@ public class NotificationQueryServiceImpl implements NotificationQueryService {
     @Transactional(rollbackFor = Exception.class)
     public MarkReadResp markAllRead(Long userId) {
         ValidationUtils.throwIfNull(userId, "请先登录");
-        List<AppMessageDO> unreadList = messageMapper.selectList(Wrappers.<AppMessageDO>lambdaQuery()
-            .select(AppMessageDO::getId)
+        LocalDateTime now = LocalDateTime.now();
+        int updated = messageMapper.update(null, Wrappers.<AppMessageDO>lambdaUpdate()
+            .set(AppMessageDO::getReadStatus, true)
+            .set(AppMessageDO::getReadTime, now)
+            .set(AppMessageDO::getUpdateUser, userId)
+            .set(AppMessageDO::getUpdateTime, now)
             .eq(AppMessageDO::getReceiverId, userId)
-            .eq(AppMessageDO::getReadStatus, false)
-            .orderByAsc(AppMessageDO::getCreateTime)
-            .last("LIMIT " + MARK_ALL_BATCH_SIZE));
-        if (CollUtil.isEmpty(unreadList)) {
-            return new MarkReadResp(0);
-        }
-        List<Long> ids = CollUtils.mapToList(unreadList, AppMessageDO::getId);
-        this.doMarkRead(ids, userId);
-        return new MarkReadResp(ids.size());
+            .eq(AppMessageDO::getReadStatus, false));
+        return new MarkReadResp(updated);
     }
 
     @Override
@@ -156,6 +148,13 @@ public class NotificationQueryServiceImpl implements NotificationQueryService {
         ValidationUtils.throwIfNull(userId, "请先登录");
         ValidationUtils.throwIfNull(req, "请提交要设置的通知偏好");
         ValidationUtils.throwIf(CollUtil.isEmpty(req.getItems()), "请至少设置一项通知偏好");
+        Set<NotificationEventEnum> types = new HashSet<>();
+        for (PreferenceItemReq item : req.getItems()) {
+            ValidationUtils.throwIfNull(item, "通知偏好项不能为空");
+            NotificationEventEnum event = PreferenceSupport.resolveEvent(item.getType());
+            ValidationUtils.throwIfNull(event, "通知类型 [{}] 不合法", item.getType());
+            ValidationUtils.throwIf(!types.add(event), "通知类型 [{}] 不能重复", event.name());
+        }
         LocalDateTime now = LocalDateTime.now();
         Map<String, PreferenceDO> preferenceMap = this.findPreferenceMap(userId);
         for (PreferenceItemReq item : req.getItems()) {
