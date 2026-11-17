@@ -48,6 +48,9 @@ public class AppUserContext implements Serializable {
      */
     private String identityType;
 
+    /** Server-verified authorization; absent on old sessions means no access. */
+    private Boolean volunteerVerified;
+
     /**
      * 常驻市编码
      */

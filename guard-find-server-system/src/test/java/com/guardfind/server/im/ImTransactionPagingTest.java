@@ -153,7 +153,7 @@ class ImTransactionPagingTest {
 
     @Test
     void messagePageIsBoundedAndMarksOnlyReturnedPeerMessages() {
-        when(conversations.selectById(10L)).thenReturn(conversation());
+        when(conversations.selectOne(any())).thenReturn(conversation());
         when(messages.selectList(any())).thenReturn(List.of(message(101L, 2L, 0), message(102L, 1L, 0)));
         when(messages.update(isNull(), any())).thenReturn(1);
 
@@ -206,4 +206,19 @@ class ImTransactionPagingTest {
         verify(adminMessages).update(isNull(), update.capture());
         assertTrue(update.getValue().getSqlSegment().contains("id IN"));
     }
+    @Test
+    void markReadLocksTheSameConversationAsSendBeforeChangingCounters() {
+        when(conversations.selectOne(any())).thenReturn(conversation());
+        try (var context = Mockito.mockStatic(AppUserContextHolder.class)) {
+            context.when(AppUserContextHolder::getUserIdRequired).thenReturn(1L);
+            service.markRead(10L);
+        }
+        var query = ArgumentCaptor.forClass(LambdaQueryWrapper.class);
+        var order = Mockito.inOrder(conversations, messages);
+        order.verify(conversations).selectOne(query.capture());
+        order.verify(messages).update(isNull(), any());
+        order.verify(conversations).update(isNull(), any());
+        assertTrue(query.getValue().getSqlSegment().contains("FOR UPDATE"));
+    }
+
 }

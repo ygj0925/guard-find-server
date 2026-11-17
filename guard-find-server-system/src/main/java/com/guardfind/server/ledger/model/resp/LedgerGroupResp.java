@@ -36,12 +36,14 @@ public class LedgerGroupResp implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Schema(description = "组 ID")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private Long id;
 
     @Schema(description = "组名")
     private String name;
 
     @Schema(description = "组长用户 ID")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private Long ownerUserId;
 
     @Schema(description = "当前用户在组内角色(1 组长 / 2 成员)")

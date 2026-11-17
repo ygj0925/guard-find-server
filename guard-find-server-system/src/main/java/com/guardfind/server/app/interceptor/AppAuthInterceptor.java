@@ -91,7 +91,8 @@ public class AppAuthInterceptor implements HandlerInterceptor {
         AppUserContext cachedContext = ExceptionUtils.exToNull(() -> StpAppUtil.stpLogic()
             .getTokenSessionByToken(token)
             .getModel(AppUserContextHolder.CONTEXT_KEY, AppUserContext.class));
-        if (cachedContext != null && Objects.equals(userId, cachedContext.getId())) {
+        if (cachedContext != null && Objects.equals(userId, cachedContext.getId())
+            && cachedContext.getIdentityType() != null && !"VOLUNTEER".equals(cachedContext.getIdentityType())) {
             return cachedContext;
         }
         AppUserService appUserService = appUserServiceProvider.getIfAvailable();

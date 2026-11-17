@@ -138,7 +138,32 @@ class LedgerServiceImplTest extends ContainerlessTestBase {
             own.setUserId(7L);
             when(mapper.selectById(5L)).thenReturn(own);
             service.delete(5L);
-            verify(mapper).deleteById(5L);
+            verify(mapper).deleteById(own);
+        }
+    }
+
+    @Test
+    void createPersistsGroupAndChecksMembership() {
+        try (var ignored = mockStatic(AppUserContextHolder.class)) {
+            when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
+            var request = req(1, "10.00", "food");
+            request.setGroupId(99L);
+            service.create(request);
+            verify(groupService).requireMembership(99L);
+            var capture = ArgumentCaptor.forClass(LedgerRecordDO.class);
+            verify(mapper).insert(capture.capture());
+            assertEquals(99L, capture.getValue().getGroupId());
+        }
+    }
+
+    @Test
+    void createRejectsNonMemberBeforeInsert() {
+        try (var ignored = mockStatic(AppUserContextHolder.class)) {
+            when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
+            var request = req(1, "10.00", "food"); request.setGroupId(99L);
+            when(groupService.requireMembership(99L)).thenThrow(new AppBizException(AppBizException.NOT_FOUND, "不可访问"));
+            assertThrows(AppBizException.class, () -> service.create(request));
+            verify(mapper, never()).insert(any(LedgerRecordDO.class));
         }
     }
 }

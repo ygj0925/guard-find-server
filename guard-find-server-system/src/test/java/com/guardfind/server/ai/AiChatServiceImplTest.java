@@ -60,6 +60,8 @@ class AiChatServiceImplTest extends ContainerlessTestBase {
     private LlmClient llmClient;
     private AiChatProperties properties;
     private AiChatServiceImpl service;
+    private org.redisson.api.RLock lock;
+    private org.springframework.transaction.PlatformTransactionManager transactions;
 
     @BeforeEach
     void setUp() {
@@ -68,7 +70,19 @@ class AiChatServiceImplTest extends ContainerlessTestBase {
         llmClient = mock(LlmClient.class);
         properties = new AiChatProperties();
         properties.setModel("glm-4-flash");
-        service = new AiChatServiceImpl(conversationMapper, messageMapper, llmClient, properties);
+        var redisson = mock(org.redisson.api.RedissonClient.class);
+        lock = mock(org.redisson.api.RLock.class);
+        when(redisson.getLock(any(String.class))).thenReturn(lock);
+        when(lock.tryLock()).thenReturn(true);
+        when(lock.isHeldByCurrentThread()).thenReturn(true);
+        transactions = new org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            protected Object doGetTransaction() { return new Object(); }
+            protected void doBegin(Object tx, org.springframework.transaction.TransactionDefinition definition) {}
+            protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+            protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {}
+        };
+        when(conversationMapper.lockById(any())).thenAnswer(inv -> conversationMapper.selectById((Long)inv.getArgument(0)));
+        service = new AiChatServiceImpl(conversationMapper, messageMapper, llmClient, properties, redisson, transactions);
     }
 
     private AiSendReq sendReq(String content) {
@@ -185,6 +199,56 @@ class AiChatServiceImplTest extends ContainerlessTestBase {
             when(llmClient.chat(any())).thenReturn("  ");
             assertThrows(BusinessException.class, () -> service.send(5L, sendReq("hi")));
         }
+    }
+
+    @Test
+    void rejectsConcurrentGenerationWithoutCallingModel() {
+        when(conversationMapper.selectById(5L)).thenReturn(conversation(5L, 7L, "title"));
+        when(lock.tryLock()).thenReturn(false);
+        try (var context = mockStatic(AppUserContextHolder.class)) {
+            context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            assertThrows(BusinessException.class, () -> service.send(5L, sendReq("hello")));
+        }
+        verify(llmClient, never()).chat(any());
+        verify(messageMapper, never()).insert(any(AiMessageDO.class));
+        verify(lock, never()).unlock();
+    }
+
+    @Test
+    void callsModelOutsideTransactionAndPersistsPairInsideShortTransaction() {
+        properties.setApiKey("test-key");
+        when(conversationMapper.selectById(5L)).thenReturn(conversation(5L, 7L, "title"));
+        when(llmClient.chat(any())).thenAnswer(inv -> {
+            org.junit.jupiter.api.Assertions.assertFalse(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            verify(messageMapper, never()).insert(any(AiMessageDO.class));
+            return "reply";
+        });
+        when(messageMapper.insert(any(AiMessageDO.class))).thenAnswer(inv -> {
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive());
+            ((AiMessageDO)inv.getArgument(0)).setId(123L);
+            return 1;
+        });
+        try (var context = mockStatic(AppUserContextHolder.class)) {
+            context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            service.send(5L, sendReq("hello"));
+        }
+        verify(lock).unlock();
+    }
+
+    @Test
+    void doesNotPersistReplyWhenConversationWasDeletedDuringGeneration() {
+        properties.setApiKey("test-key");
+        when(conversationMapper.selectById(5L)).thenReturn(conversation(5L, 7L, "title"));
+        when(llmClient.chat(any())).thenAnswer(inv -> {
+            when(conversationMapper.lockById(5L)).thenReturn(null);
+            return "reply";
+        });
+        try (var context = mockStatic(AppUserContextHolder.class)) {
+            context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            assertThrows(AppBizException.class, () -> service.send(5L, sendReq("hello")));
+        }
+        verify(messageMapper, never()).insert(any(AiMessageDO.class));
+        verify(lock).unlock();
     }
 
     @Test

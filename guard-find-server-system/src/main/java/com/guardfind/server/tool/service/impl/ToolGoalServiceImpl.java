@@ -96,7 +96,12 @@ public class ToolGoalServiceImpl implements ToolGoalService {
             .in(ToolKeyResultDO::getGoalId, goalIds))
             .stream()
             .collect(java.util.stream.Collectors.groupingBy(ToolKeyResultDO::getGoalId));
-        return goals.stream().map(goal -> toResp(goal, krsByGoal.getOrDefault(goal.getId(), List.of()))).toList();
+        List<Long> krIds = krsByGoal.values().stream().flatMap(List::stream).map(ToolKeyResultDO::getId).toList();
+        var tasksByKr = krIds.isEmpty() ? java.util.Map.<Long, List<ToolTaskDO>>of()
+            : taskMapper.selectList(Wrappers.<ToolTaskDO>lambdaQuery()
+                .select(ToolTaskDO::getKrId, ToolTaskDO::getStatus).in(ToolTaskDO::getKrId, krIds))
+                .stream().collect(java.util.stream.Collectors.groupingBy(ToolTaskDO::getKrId));
+        return goals.stream().map(goal -> toResp(goal, krsByGoal.getOrDefault(goal.getId(), List.of()), tasksByKr)).toList();
     }
 
     @Override
@@ -233,8 +238,8 @@ public class ToolGoalServiceImpl implements ToolGoalService {
         if (task == null || !Objects.equals(task.getKrId(), krId)) {
             throw new BusinessException("任务与该 KR 无关联");
         }
-        task.setKrId(null);
-        taskMapper.updateById(task);
+        taskMapper.update(null, Wrappers.<ToolTaskDO>lambdaUpdate()
+            .eq(ToolTaskDO::getId, taskId).eq(ToolTaskDO::getKrId, krId).set(ToolTaskDO::getKrId, null));
     }
 
     @Override
@@ -288,7 +293,7 @@ public class ToolGoalServiceImpl implements ToolGoalService {
         return kr;
     }
 
-    private ToolGoalResp toResp(ToolGoalDO goal, List<ToolKeyResultDO> krs) {
+    private ToolGoalResp toResp(ToolGoalDO goal, List<ToolKeyResultDO> krs, java.util.Map<Long, List<ToolTaskDO>> tasksByKr) {
         ToolGoalResp resp = new ToolGoalResp();
         resp.setId(goal.getId());
         resp.setTitle(goal.getTitle());
@@ -305,8 +310,7 @@ public class ToolGoalServiceImpl implements ToolGoalService {
             item.setConfidence(kr.getConfidence());
             item.setProgress(KrProgressCalculator.percent(kr.getCurrentValue(), kr.getTargetValue()));
             // 关联任务进度
-            List<ToolTaskDO> linked = taskMapper.selectList(Wrappers.<ToolTaskDO>lambdaQuery()
-                .eq(ToolTaskDO::getKrId, kr.getId()));
+            List<ToolTaskDO> linked = tasksByKr.getOrDefault(kr.getId(), List.of());
             item.setTaskTotal((long)linked.size());
             item.setTaskDone(linked.stream().filter(t -> t.getStatus() != null && t.getStatus() == 3).count());
             item.setKrStatus(KrStatusCalculator.status(KrStatusCalculator.periodRange(goal

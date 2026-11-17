@@ -287,4 +287,16 @@ class AppUserServiceImplTest extends ContainerlessTestBase {
         req.setReason("不再使用");
         return req;
     }
+    @org.junit.jupiter.api.Test
+    void contextCarriesOnlyActiveServerVerifiedVolunteerAuthorization() {
+        var user = new com.guardfind.server.app.model.entity.AppUserDO();
+        user.setId(7L); user.setIdentityType("VOLUNTEER"); user.setAccountStatus(1);
+        user.setVolunteerVerified(false);
+        org.junit.jupiter.api.Assertions.assertFalse(appUserService.buildContext(user).getVolunteerVerified());
+        user.setVolunteerVerified(true);
+        org.junit.jupiter.api.Assertions.assertTrue(appUserService.buildContext(user).getVolunteerVerified());
+        user.setAccountStatus(2);
+        org.junit.jupiter.api.Assertions.assertFalse(appUserService.buildContext(user).getVolunteerVerified());
+    }
+
 }

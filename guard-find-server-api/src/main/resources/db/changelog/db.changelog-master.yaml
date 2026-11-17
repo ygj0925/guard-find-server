@@ -34,3 +34,9 @@ databaseChangeLog:
 #      file: db/changelog/postgresql/plugin/plugin_generator.sql
   - include:
       file: db/changelog/mysql/property_validation_fix.sql
+  - include:
+      file: db/changelog/case_erasure_snapshot_repair.sql
+  - include:
+      file: db/changelog/mysql/accounting_snapshot.sql
+  - include:
+      file: db/changelog/mysql/accounting_receipts.sql

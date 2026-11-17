@@ -67,6 +67,7 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     private final AppUserMapper appUserMapper;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LedgerGroupResp create(LedgerGroupReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerGroupDO group = new LedgerGroupDO();
@@ -109,6 +110,7 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LedgerGroupResp join(LedgerJoinReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         if (StrUtil.isBlank(req.getInviteCode())) {
@@ -116,7 +118,7 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
         }
         LedgerGroupDO group = groupMapper.selectOne(Wrappers.<LedgerGroupDO>lambdaQuery()
             .eq(LedgerGroupDO::getInviteCode, req.getInviteCode().trim().toUpperCase())
-            .last("LIMIT 1"));
+            .last("LIMIT 1 FOR UPDATE"));
         if (group == null) {
             throw new BusinessException("邀请码无效,请核对后重试");
         }
@@ -139,6 +141,7 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public LedgerGroupResp regenerateInviteCode(Long groupId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerGroupDO group = requireOwner(groupId, userId);
@@ -175,6 +178,7 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void removeMember(Long groupId, Long memberUserId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerGroupDO group = requireOwner(groupId, userId);
@@ -187,8 +191,10 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void quit(Long groupId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
+        groupMapper.lockById(groupId);
         LedgerGroupDO group = requireMembership(groupId, userId);
         if (Objects.equals(group.getOwnerUserId(), userId)) {
             throw new BusinessException("组长不能退出,如不再使用请解散家庭组");
@@ -235,7 +241,22 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
         return group;
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void transferOwner(Long groupId, Long nextOwnerId) {
+        Long userId = AppUserContextHolder.getUserIdRequired();
+        LedgerGroupDO group = requireOwner(groupId, userId);
+        if (nextOwnerId == null || Objects.equals(userId, nextOwnerId)) throw new AppBizException(AppBizException.RULE_REJECTED, "请选择其他组成员作为新组长");
+        requireMembership(groupId, nextOwnerId);
+        group.setOwnerUserId(nextOwnerId);
+        group.setInviteCode(generateInviteCode());
+        groupMapper.updateById(group);
+        memberMapper.update(null, Wrappers.<LedgerGroupMemberDO>update().eq("group_id", groupId).set("role", ROLE_MEMBER));
+        memberMapper.update(null, Wrappers.<LedgerGroupMemberDO>update().eq("group_id", groupId).eq("user_id", nextOwnerId).set("role", ROLE_OWNER));
+    }
+
     private LedgerGroupDO requireOwner(Long groupId, Long userId) {
+        groupMapper.lockById(groupId);
         LedgerGroupDO group = requireMembership(groupId, userId);
         if (!Objects.equals(group.getOwnerUserId(), userId)) {
             throw new AppBizException(AppBizException.RULE_REJECTED, "仅组长可以执行此操作");

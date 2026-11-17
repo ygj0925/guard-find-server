@@ -26,4 +26,6 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/10/28
  */
 public interface AiConversationMapper extends BaseMapper<AiConversationDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM gf_ai_conversation WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    AiConversationDO lockById(@org.apache.ibatis.annotations.Param("id") Long id);
 }

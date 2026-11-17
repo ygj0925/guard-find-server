@@ -67,8 +67,8 @@ public class LedgerController {
     @Operation(summary = "记一笔", description = "须登录；金额为正数最多两位小数，分类码必须与收支类型匹配")
     @RateLimiter(name = "APP:LEDGER:CREATE", rate = 60, interval = 1, unit = TimeUnit.MINUTES, type = LimitType.IP, message = "记账太频繁，请稍后再试")
     @PostMapping("/record")
-    public Long create(@RequestBody @Valid LedgerRecordReq req) {
-        return ledgerService.create(req);
+    public String create(@RequestBody @Valid LedgerRecordReq req) {
+        return ledgerService.create(req).toString();
     }
 
     @Operation(summary = "修改记账记录", description = "仅本人记录可修改")

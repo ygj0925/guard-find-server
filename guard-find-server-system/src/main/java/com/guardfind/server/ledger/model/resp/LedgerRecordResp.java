@@ -39,7 +39,11 @@ public class LedgerRecordResp implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Schema(description = "记录 ID")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private Long id;
+
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
+    private Long userId;
 
     @Schema(description = "类型（1：支出；2：收入）")
     private Integer type;

@@ -67,6 +67,7 @@ class ModerationServiceImplTest extends ContainerlessTestBase {
 
     @BeforeEach
     void setUp() {
+        when(caseMapper.lockById(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> caseMapper.selectById((Long) inv.getArgument(0)));
         var statuses = new CaseStatusServiceImpl(caseMapper, logs, mock(FavoriteMapper.class), messages);
         service = new ModerationServiceImpl(caseMapper, mock(LeadMapper.class), mock(ReportMapper.class), mock(UserPunishmentMapper.class), mock(AppUserMapper.class), statuses, messages, mock(DictItemService.class));
     }

@@ -65,8 +65,10 @@ public class LedgerServiceImpl implements LedgerService {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerTypeEnum type = LedgerTypeEnum.of(req.getType());
         validateCategory(type, req.getCategory());
+        if (req.getGroupId() != null) ledgerGroupService.requireMembership(req.getGroupId());
         LedgerRecordDO record = new LedgerRecordDO();
         record.setUserId(userId);
+        record.setGroupId(req.getGroupId());
         record.setType(req.getType());
         record.setAmount(req.getAmount());
         record.setCategory(req.getCategory());
@@ -80,9 +82,12 @@ public class LedgerServiceImpl implements LedgerService {
     public void update(Long id, LedgerRecordReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerRecordDO record = getOwnedRecord(id, userId);
+        if (record.getGroupId() != null) ledgerGroupService.requireMembership(record.getGroupId());
+        if (req.getGroupId() != null) ledgerGroupService.requireMembership(req.getGroupId());
         LedgerTypeEnum type = LedgerTypeEnum.of(req.getType());
         validateCategory(type, req.getCategory());
         record.setType(req.getType());
+        record.setGroupId(req.getGroupId());
         record.setAmount(req.getAmount());
         record.setCategory(req.getCategory());
         record.setRecordDate(req.getRecordDate());
@@ -94,7 +99,8 @@ public class LedgerServiceImpl implements LedgerService {
     public void delete(Long id) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerRecordDO record = getOwnedRecord(id, userId);
-        ledgerRecordMapper.deleteById(record.getId());
+        if (record.getGroupId() != null) ledgerGroupService.requireMembership(record.getGroupId());
+        ledgerRecordMapper.deleteById(record);
     }
 
     @Override
@@ -164,6 +170,7 @@ public class LedgerServiceImpl implements LedgerService {
     private static LedgerRecordResp toResp(LedgerRecordDO record) {
         LedgerRecordResp resp = new LedgerRecordResp();
         resp.setId(record.getId());
+        resp.setUserId(record.getUserId());
         resp.setType(record.getType());
         resp.setAmount(record.getAmount());
         resp.setCategory(record.getCategory());

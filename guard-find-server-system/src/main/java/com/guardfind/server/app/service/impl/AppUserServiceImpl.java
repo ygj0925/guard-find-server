@@ -246,6 +246,8 @@ public class AppUserServiceImpl implements AppUserService {
         context.setId(user.getId());
         context.setNickname(user.getNickname());
         context.setIdentityType(StrUtil.blankToDefault(user.getIdentityType(), IdentityTypeEnum.PUBLIC.name()));
+        context.setVolunteerVerified(Boolean.TRUE.equals(user.getVolunteerVerified())
+            && AccountStatusEnum.NORMAL.getValue().equals(user.getAccountStatus()));
         context.setCityCode(user.getCityCode());
         return context;
     }

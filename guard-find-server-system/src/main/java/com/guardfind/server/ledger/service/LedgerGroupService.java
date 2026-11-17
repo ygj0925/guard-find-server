@@ -83,4 +83,5 @@ public interface LedgerGroupService {
      * 校验指定用户是组成员(任务分派给他人前的负责人合法性检查);非成员抛 NOT_FOUND
      */
     void requireUserInGroup(Long groupId, Long userId);
+    void transferOwner(Long groupId, Long nextOwnerId);
 }

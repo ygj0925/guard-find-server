@@ -53,6 +53,21 @@ import static org.mockito.Mockito.when;
  * @since 2026/10/29
  */
 class LedgerGroupServiceImplTest extends ContainerlessTestBase {
+    @Test void transferChangesOwnerOnlyForCurrentMember() {
+        try(var auth=mockStatic(AppUserContextHolder.class)) {
+            auth.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            var owned=group(5L,7L,"A1B2C3");when(groupMapper.selectById(5L)).thenReturn(owned);stubMembership(5L,7L,true);
+            service.transferOwner(5L,8L);assertEquals(8L,owned.getOwnerUserId());verify(groupMapper).updateById(owned);verify(memberMapper,times(2)).update(org.mockito.ArgumentMatchers.isNull(),any());
+        }
+    }
+    @Test void transferRejectsSelfAndNonOwner() {
+        try(var auth=mockStatic(AppUserContextHolder.class)) {
+            auth.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            when(groupMapper.selectById(5L)).thenReturn(group(5L,7L,"A1B2C3"));stubMembership(5L,7L,true);
+            assertThrows(AppBizException.class,()->service.transferOwner(5L,7L));
+            when(groupMapper.selectById(5L)).thenReturn(group(5L,8L,"A1B2C3"));assertThrows(AppBizException.class,()->service.transferOwner(5L,9L));verify(groupMapper,never()).updateById(any(LedgerGroupDO.class));
+        }
+    }
 
     private LedgerGroupMapper groupMapper;
     private LedgerGroupMemberMapper memberMapper;

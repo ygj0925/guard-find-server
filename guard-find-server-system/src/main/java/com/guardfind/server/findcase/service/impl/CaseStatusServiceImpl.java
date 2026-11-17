@@ -64,7 +64,7 @@ public class CaseStatusServiceImpl implements CaseStatusService {
                                   Long operatorId,
                                   CaseOperatorTypeEnum operatorType) {
         CheckUtils.throwIfNull(caseId, "档案 ID 不能为空");
-        FindCaseDO caseDO = findCaseMapper.selectById(caseId);
+        FindCaseDO caseDO = findCaseMapper.lockById(caseId);
         CheckUtils.throwIfNull(caseDO, "档案不存在或已删除");
         return this.change(caseDO, target, reasonCode, reason, operatorId, operatorType);
     }
@@ -79,6 +79,9 @@ public class CaseStatusServiceImpl implements CaseStatusService {
                                   CaseOperatorTypeEnum operatorType) {
         CheckUtils.throwIfNull(caseDO, "档案不存在或已删除");
         CheckUtils.throwIfNull(target, "目标状态不能为空");
+        FindCaseDO current = findCaseMapper.lockById(caseDO.getId());
+        CheckUtils.throwIfNull(current, "档案不存在或已删除");
+        CheckUtils.throwIf(current.getStatus() != caseDO.getStatus(), "档案状态已变更，请刷新后重试");
         CaseStatusEnum from = caseDO.getStatus();
         CheckUtils.throwIf(from == target, "档案已处于 [{}] 状态", target.getDescription());
         CheckUtils.throwIf(!CaseStatusEnum.canTransfer(from, target), "状态冲突：档案当前为 [{}]，不能变更为 [{}]", from == null

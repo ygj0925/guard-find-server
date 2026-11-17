@@ -60,6 +60,7 @@ import com.guardfind.server.findcase.service.CaseService;
 import com.guardfind.server.findcase.service.CaseStatusService;
 import com.guardfind.server.findcase.service.ContentCheckGateway;
 import com.guardfind.server.findcase.support.CaseConstants;
+import com.guardfind.server.findcase.support.CaseMediaFiles;
 import com.guardfind.server.findcase.support.CaseSubmitValidator;
 import com.guardfind.server.findcase.support.CaseViewAssembler;
 import com.guardfind.server.findcase.util.CaseDedupeKeyUtil;
@@ -120,6 +121,7 @@ public class CaseServiceImpl implements CaseService {
     private final CaseVersionMapper caseVersionMapper;
     private final UserTrackMapper userTrackMapper;
     private final FileService fileService;
+    private final CaseMediaFiles mediaFiles;
     private final CaseViewAssembler caseViewAssembler;
     private final ContentCheckGateway contentCheckGateway;
     private final CaseStatusService caseStatusService;
@@ -260,13 +262,14 @@ public class CaseServiceImpl implements CaseService {
     @Transactional(rollbackFor = Exception.class)
     public void erase(Long id, CaseActionReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        FindCaseDO caseDO = findCaseMapper.selectById(id);
+        FindCaseDO caseDO = findCaseMapper.lockById(id);
         CheckUtils.throwIfNull(caseDO, "档案不存在或已删除");
-        CheckUtils.throwIf(caseDO.getStatus() == CaseStatusEnum.ERASED, "档案已删除，无需重复操作");
         CheckUtils.throwIf(!this.canErase(caseDO, userId), "无权删除该档案");
         String reason = StrUtil.blankToDefault(req == null ? null : req.getReason(), "发布人行使删除权");
-        caseStatusService
-            .change(caseDO, CaseStatusEnum.ERASED, "ERASE_REQUEST", reason, userId, CaseOperatorTypeEnum.APP);
+        if (caseDO.getStatus() != CaseStatusEnum.ERASED) {
+            caseStatusService
+                .change(caseDO, CaseStatusEnum.ERASED, "ERASE_REQUEST", reason, userId, CaseOperatorTypeEnum.APP);
+        }
         // 状态先落库再清除识别字段：即使清除失败也不会留下"对外可见但无姓名"的中间态
         List<Long> fileIds = this.clearIdentifiableInfo(caseDO, userId);
         if (CollUtil.isNotEmpty(fileIds)) {
@@ -326,7 +329,15 @@ public class CaseServiceImpl implements CaseService {
             .eq(FindCaseDO::getStatus, CaseStatusEnum.PUBLISHED)
             .apply(confirmExpr + " <= {0}", now.minusDays(CaseConstants.EXPIRY_DAYS))
             .list();
-        for (FindCaseDO caseDO : expiredList) {
+        int archived = 0;
+        for (FindCaseDO candidate : expiredList) {
+            FindCaseDO caseDO = findCaseMapper.lockById(candidate.getId());
+            if (caseDO == null || caseDO.getStatus() != CaseStatusEnum.PUBLISHED) continue;
+            LocalDateTime confirmed = caseDO.getLastConfirmTime();
+            if (confirmed == null) confirmed = caseDO.getPublishTime();
+            if (confirmed == null) confirmed = caseDO.getCreateTime();
+            if (confirmed == null || confirmed.isAfter(now.minusDays(CaseConstants.EXPIRY_DAYS))) continue;
+            archived++;
             caseStatusService.change(caseDO, CaseStatusEnum.ARCHIVED, "EXPIRED", "超过 %d 天无人确认，系统自动归档"
                 .formatted(CaseConstants.EXPIRY_DAYS), CaseConstants.SYSTEM_OPERATOR_ID, CaseOperatorTypeEnum.SYSTEM);
         }
@@ -347,7 +358,7 @@ public class CaseServiceImpl implements CaseService {
                     .getId(), "档案即将归档", "您发布的寻人档案「%s」将在 %d 天后到期归档，请在「我的发布」中续期。".formatted(caseDO
                         .getName(), CaseConstants.EXPIRY_NOTICE_ADVANCE_DAYS));
         }
-        return expiredList.size();
+        return archived;
     }
 
     /**
@@ -593,7 +604,7 @@ public class CaseServiceImpl implements CaseService {
     }
 
     private FindCaseDO getOwnedCase(Long id, Long userId) {
-        FindCaseDO caseDO = findCaseMapper.selectById(id);
+        FindCaseDO caseDO = findCaseMapper.lockById(id);
         CheckUtils.throwIfNull(caseDO, "档案不存在或已删除");
         CheckUtils.throwIf(!Objects.equals(caseDO.getOwnerId(), userId), "无权操作他人档案");
         return caseDO;
@@ -660,18 +671,23 @@ public class CaseServiceImpl implements CaseService {
      * 清除识别字段（响应删除权），返回需回收的文件 ID
      */
     private List<Long> clearIdentifiableInfo(FindCaseDO caseDO, Long operatorId) {
-        List<FindCaseMediaDO> mediaList = this.listMedia(caseDO.getId());
+        List<FindCaseMediaDO> mediaList = findCaseMediaMapper.allForErasure(caseDO.getId());
         List<Long> fileIds = mediaList.stream()
-            .map(FindCaseMediaDO::getStorageId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toList());
-        findCaseMediaMapper.delete(Wrappers.<FindCaseMediaDO>lambdaQuery()
-            .eq(FindCaseMediaDO::getCaseId, caseDO.getId()));
-        findCaseAliasMapper.delete(Wrappers.<FindCaseAliasDO>lambdaQuery()
-            .eq(FindCaseAliasDO::getCaseId, caseDO.getId()));
+            .filter(media -> findCaseMediaMapper.selectCount(Wrappers.<FindCaseMediaDO>lambdaQuery()
+                .ne(FindCaseMediaDO::getCaseId, caseDO.getId()).eq(FindCaseMediaDO::getUrl, media.getUrl())) == 0)
+            .map(media -> mediaFiles.findOwned(media.getUrl(), caseDO.getOwnerId()))
+            .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        caseVersionMapper.eraseSnapshots(caseDO.getId());
+        findCaseMediaMapper.eraseContent(caseDO.getId());
+        findCaseAliasMapper.eraseContent(caseDO.getId());
         // 显式置空：让档案不再能指向具体的人，仅保留编号与状态轨迹用于追溯
         findCaseMapper.lambdaUpdate()
             .set(FindCaseDO::getName, CaseConstants.ERASED_NAME)
+            .set(FindCaseDO::getBirthday, null)
+            .set(FindCaseDO::getMissingTime, null)
+            .set(FindCaseDO::getProvinceCode, null)
+            .set(FindCaseDO::getCityCode, null)
+            .set(FindCaseDO::getDistrictCode, null)
             .set(FindCaseDO::getAddress, null)
             .set(FindCaseDO::getContactPhone, null)
             .set(FindCaseDO::getFeatures, null)
@@ -706,6 +722,7 @@ public class CaseServiceImpl implements CaseService {
             FindCaseMediaDO media = new FindCaseMediaDO();
             media.setCaseId(caseId);
             media.setUrl(StrUtil.trim(item.getUrl()));
+            media.setStorageId(mediaFiles.requireOwned(media.getUrl(), userId));
             media.setType(StrUtil.blankToDefault(item.getType(), CaseConstants.MEDIA_TYPE_PHOTO));
             media.setSort(Objects.isNull(item.getSort()) ? i : item.getSort());
             media.setCreateUser(userId);

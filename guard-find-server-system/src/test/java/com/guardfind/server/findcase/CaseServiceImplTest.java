@@ -89,15 +89,19 @@ class CaseServiceImplTest extends ContainerlessTestBase {
     private final CaseViewAssembler assembler = mock(CaseViewAssembler.class);
     private final AppMessageService messages = mock(AppMessageService.class);
     private final UserTrackMapper tracks = mock(UserTrackMapper.class);
+    private final FileService fileService = mock(FileService.class);
+    private final com.guardfind.server.findcase.support.CaseMediaFiles mediaFiles = mock(com.guardfind.server.findcase.support.CaseMediaFiles.class);
     private CaseServiceImpl service;
 
     @BeforeEach
     void setUp() {
+        when(caseMapper.lockById(org.mockito.ArgumentMatchers.any())).thenAnswer(inv -> caseMapper.selectById((Long) inv.getArgument(0)));
         var assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "test");
         TableInfoHelper.initTableInfo(assistant, FindCaseDO.class);
         TableInfoHelper.initTableInfo(assistant, FindCaseMediaDO.class);
+        TableInfoHelper.initTableInfo(assistant, com.guardfind.server.findcase.model.entity.FindCaseAliasDO.class);
         var statuses = new CaseStatusServiceImpl(caseMapper, statusLogMapper, mock(FavoriteMapper.class), messages);
-        service = new CaseServiceImpl(caseMapper, mediaMapper, mock(FindCaseAliasMapper.class), versionMapper, tracks, mock(FileService.class), assembler, mock(ContentCheckGateway.class), statuses, messages);
+        service = new CaseServiceImpl(caseMapper, mediaMapper, mock(FindCaseAliasMapper.class), versionMapper, tracks, fileService, mediaFiles, assembler, mock(ContentCheckGateway.class), statuses, messages);
     }
 
     @Test
@@ -235,6 +239,59 @@ class CaseServiceImplTest extends ContainerlessTestBase {
         assertThat(query.getValue().getSqlSegment()).contains("status IN");
         assertThat(query.getValue().getParamNameValuePairs().values()).containsExactly(item.getStatus());
         assertThat(item.getStatus()).isEqualTo(CaseStatusEnum.PUBLISHED);
+    }
+
+    @Test
+    void staleStatusCannotOverwriteCurrentStateOrProduceNotifications() {
+        FindCaseDO stale = validCase();
+        stale.setStatus(CaseStatusEnum.PENDING_REVIEW);
+        FindCaseDO current = validCase();
+        current.setStatus(CaseStatusEnum.WITHDRAWN);
+        when(caseMapper.lockById(100L)).thenReturn(current);
+        var statuses = new CaseStatusServiceImpl(caseMapper, statusLogMapper, mock(FavoriteMapper.class), messages);
+        assertThatThrownBy(() -> statuses.change(stale, CaseStatusEnum.PUBLISHED, null, "审核", 90L,
+            com.guardfind.server.findcase.enums.CaseOperatorTypeEnum.SYS)).hasMessageContaining("状态已变更");
+        verify(caseMapper, never()).updateById(any(FindCaseDO.class));
+        verifyNoInteractions(statusLogMapper, messages);
+    }
+
+    @Test
+    void expiryRechecksRenewalWhileHoldingLock() {
+        FindCaseDO expired = validCase();
+        expired.setStatus(CaseStatusEnum.PUBLISHED);
+        expired.setLastConfirmTime(LocalDateTime.now().minusDays(100));
+        FindCaseDO renewed = validCase();
+        renewed.setStatus(CaseStatusEnum.PUBLISHED);
+        renewed.setLastConfirmTime(LocalDateTime.now());
+        when(caseMapper.lockById(100L)).thenReturn(renewed);
+        when(caseMapper.lambdaQuery()).thenReturn(new LambdaQueryChainWrapper<>(caseMapper));
+        when(caseMapper.selectList(any())).thenReturn(List.of(expired), List.of());
+        assertThat(service.runExpiryTask()).isZero();
+        verify(caseMapper, never()).updateById(any(FindCaseDO.class));
+        verifyNoInteractions(statusLogMapper, messages);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = CaseStatusEnum.class, names = {"PUBLISHED", "ERASED"})
+    void erasureScrubsSnapshotsAndReclaimsLegacyUrlOnlyMedia(CaseStatusEnum status) {
+        FindCaseDO item = validCase();
+        item.setStatus(status);
+        when(caseMapper.selectById(100L)).thenReturn(item);
+        when(caseMapper.lambdaUpdate()).thenReturn(new LambdaUpdateChainWrapper<>(caseMapper));
+        var media = new FindCaseMediaDO();
+        media.setUrl("https://cdn.test/old.png");
+        // The historical record intentionally has no storageId.
+        when(mediaMapper.allForErasure(100L)).thenReturn(List.of(media));
+        when(mediaMapper.selectCount(any())).thenReturn(0L);
+        when(mediaFiles.findOwned(media.getUrl(), 7L)).thenReturn(999L);
+        try (var context = mockStatic(AppUserContextHolder.class)) {
+            context.when(AppUserContextHolder::getUserIdRequired).thenReturn(7L);
+            service.erase(100L, null);
+        }
+        verify(versionMapper).eraseSnapshots(100L);
+        verify(fileService).delete(List.of(999L));
+        assertThat(item.getStatus()).isEqualTo(CaseStatusEnum.ERASED);
+        if (status == CaseStatusEnum.ERASED) verifyNoInteractions(statusLogMapper, messages);
     }
 
     private void prepareSubmission(FindCaseDO item) {

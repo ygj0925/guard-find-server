@@ -26,4 +26,6 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/10/29
  */
 public interface LedgerGroupMapper extends BaseMapper<LedgerGroupDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM gf_ledger_group WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    LedgerGroupDO lockById(@org.apache.ibatis.annotations.Param("id") Long id);
 }

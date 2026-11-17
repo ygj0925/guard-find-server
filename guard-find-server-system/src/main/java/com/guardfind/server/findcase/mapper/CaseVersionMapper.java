@@ -26,4 +26,7 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/9/24
  */
 public interface CaseVersionMapper extends BaseMapper<CaseVersionDO> {
+    // Include logically deleted revisions: deletion must not leave identifiable snapshots.
+    @org.apache.ibatis.annotations.Update("UPDATE gf_case_version SET snapshot_json = '{}' WHERE case_id = #{caseId}")
+    int eraseSnapshots(@org.apache.ibatis.annotations.Param("caseId") Long caseId);
 }

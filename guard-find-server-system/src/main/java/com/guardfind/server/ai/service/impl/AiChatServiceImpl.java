@@ -48,8 +48,8 @@ import java.util.List;
  * AI 对话实现
  *
  * <p>
- * 发送消息的事务边界:用户消息与助手消息一起落库,LLM 调用放在事务内
- * (单机同步调用,失败即整体不落库,客户端重发即可;流式版需改为先落用户消息)。
+ * LLM 调用不占用数据库事务；同一会话通过 Redis 看门狗锁串行处理。
+ * 回复生成成功后，在短事务内重新检查归属并原子保存用户消息与助手消息。
  * 未配置 apiKey 时进入测试模式:返回明确标注的兜底回复,不调供应商。
  * </p>
  *
@@ -69,6 +69,8 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiMessageMapper messageMapper;
     private final LlmClient llmClient;
     private final AiChatProperties properties;
+    private final org.redisson.api.RedissonClient redisson;
+    private final org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     @Override
     public AiConversationResp create(String title) {
@@ -106,13 +108,21 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     public AiReplyResp send(Long conversationId, AiSendReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        AiConversationDO conversation = getOwnedConversation(conversationId, userId);
-        String content = StrUtil.trim(req.getContent());
+        getOwnedConversation(conversationId, userId);
+        var lock = redisson.getLock("APP:AI:CONVERSATION:" + conversationId);
+        if (!lock.tryLock()) throw new BusinessException("当前对话正在生成回复，请稍后再试");
+        try {
+            return sendLocked(conversationId, userId, req, lock);
+        } finally {
+            if (lock.isHeldByCurrentThread()) lock.unlock();
+        }
+    }
 
-        AiMessageDO userMessage = insertMessage(conversationId, userId, "user", content);
+    private AiReplyResp sendLocked(Long conversationId, Long userId, AiSendReq req, org.redisson.api.RLock lock) {
+        String content = StrUtil.trim(req.getContent());
 
         // 组装上下文:system 提示词 + 最近 N 条历史 + 本条消息(按 id 升序裁剪)
         List<LlmMessage> context = new ArrayList<>();
@@ -120,7 +130,6 @@ public class AiChatServiceImpl implements AiChatService {
         int turns = Math.max(0, properties.getHistoryTurns());
         List<AiMessageDO> history = messageMapper.selectList(Wrappers.<AiMessageDO>lambdaQuery()
             .eq(AiMessageDO::getConversationId, conversationId)
-            .ne(AiMessageDO::getId, userMessage.getId())
             .orderByDesc(AiMessageDO::getId)
             .last("LIMIT " + turns * 2));
         for (int i = history.size() - 1; i >= 0; i--) {
@@ -138,29 +147,35 @@ public class AiChatServiceImpl implements AiChatService {
         if (StrUtil.isBlank(replyText)) {
             throw new BusinessException("AI 没有返回内容,请换个问法试试");
         }
-        AiMessageDO reply = insertMessage(conversationId, userId, "assistant", replyText);
+        return new org.springframework.transaction.support.TransactionTemplate(transactionManager).execute(status -> {
+            if (!lock.isHeldByCurrentThread()) throw new BusinessException("对话生成已失效，请重试");
+            AiConversationDO current = getOwnedConversationForUpdate(conversationId, userId);
+            insertMessage(conversationId, userId, "user", content);
+            AiMessageDO reply = insertMessage(conversationId, userId, "assistant", replyText);
 
-        // 首条消息回填会话标题(默认标题才覆盖,不抢用户自定义标题)
-        String title = conversation.getTitle();
-        if (DEFAULT_TITLE.equals(title)) {
-            title = StrUtil.maxLength(StrUtil.cleanBlank(content), 20);
-            conversation.setTitle(title);
-        }
-        conversation.setModel(properties.getModel());
-        conversationMapper.updateById(conversation);
+            // Recheck under the row lock: deleted conversations cannot gain orphan messages.
+            String title = current.getTitle();
+            if (DEFAULT_TITLE.equals(title)) {
+                title = StrUtil.maxLength(StrUtil.cleanBlank(content), 20);
+                current.setTitle(title);
+            }
+            current.setModel(properties.getModel());
+            conversationMapper.updateById(current);
 
-        AiReplyResp resp = new AiReplyResp();
-        resp.setConversationId(conversationId);
-        resp.setTitle(title);
-        resp.setReply(toMessageResp(reply));
-        resp.setMockMode(mockMode);
-        return resp;
+            AiReplyResp resp = new AiReplyResp();
+            resp.setConversationId(conversationId);
+            resp.setTitle(title);
+            resp.setReply(toMessageResp(reply));
+            resp.setMockMode(mockMode);
+            return resp;
+        });
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long conversationId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        AiConversationDO conversation = getOwnedConversation(conversationId, userId);
+        AiConversationDO conversation = getOwnedConversationForUpdate(conversationId, userId);
         conversationMapper.deleteById(conversation.getId());
         messageMapper.delete(Wrappers.<AiMessageDO>lambdaQuery().eq(AiMessageDO::getConversationId, conversationId));
     }
@@ -182,6 +197,14 @@ public class AiChatServiceImpl implements AiChatService {
         AiConversationDO conversation = conversationMapper.selectById(conversationId);
         if (conversation == null || !conversation.getUserId().equals(userId)) {
             // 越权与不存在同一话术,与记账口径一致
+            throw new AppBizException(AppBizException.NOT_FOUND, "会话不存在");
+        }
+        return conversation;
+    }
+
+    private AiConversationDO getOwnedConversationForUpdate(Long id, Long userId) {
+        AiConversationDO conversation = conversationMapper.lockById(id);
+        if (conversation == null || !userId.equals(conversation.getUserId())) {
             throw new AppBizException(AppBizException.NOT_FOUND, "会话不存在");
         }
         return conversation;

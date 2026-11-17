@@ -125,9 +125,10 @@ public class ImServiceImpl implements ImService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public List<ImMessageResp> messages(Long conversationId, Long afterId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        ImConversationDO conv = requireMembership(conversationId, userId);
+        ImConversationDO conv = requireMembershipForUpdate(conversationId, userId);
         List<ImMessageDO> msgs = messageMapper.selectList(Wrappers.<ImMessageDO>lambdaQuery()
             .eq(ImMessageDO::getConversationId, conversationId)
             .gt(afterId != null && afterId > 0, ImMessageDO::getId, afterId)
@@ -201,9 +202,10 @@ public class ImServiceImpl implements ImService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void markRead(Long conversationId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        ImConversationDO conv = requireMembership(conversationId, userId);
+        ImConversationDO conv = requireMembershipForUpdate(conversationId, userId);
         boolean iAmA = Objects.equals(conv.getUserAId(), userId);
         int unread = iAmA ? conv.getUnreadA() : conv.getUnreadB();
         if (unread <= 0)
@@ -221,9 +223,10 @@ public class ImServiceImpl implements ImService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long conversationId) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        ImConversationDO conv = requireMembership(conversationId, userId);
+        ImConversationDO conv = requireMembershipForUpdate(conversationId, userId);
         // 仅自己视角清零未读(不做物理删除,保留对方视角)
         boolean iAmA = Objects.equals(conv.getUserAId(), userId);
         conversationMapper.update(null, Wrappers.<ImConversationDO>update()

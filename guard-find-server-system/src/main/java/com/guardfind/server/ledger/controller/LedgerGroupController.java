@@ -53,6 +53,12 @@ import java.util.List;
 public class LedgerGroupController {
 
     private final LedgerGroupService groupService;
+    public record TransferReq(@jakarta.validation.constraints.NotNull Long nextOwnerId) {}
+    @Operation(summary = "移交家庭组组长", description = "仅现组长可操作，接收者必须是当前成员")
+    @PostMapping("/{id}/transfer-owner")
+    public void transferOwner(@PathVariable Long id, @RequestBody @Valid TransferReq req) {
+        groupService.transferOwner(id, req.nextOwnerId());
+    }
 
     @Operation(summary = "创建家庭组", description = "创建者为组长,自动生成邀请码")
     @PostMapping

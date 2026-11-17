@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.guardfind.server.accounting.mapper.AccountingSnapshotMapper">
+    <delete id="deleteCancelledUsers">DELETE FROM gf_accounting_snapshot WHERE user_id IN (SELECT id FROM gf_app_user WHERE account_status=4) OR NOT EXISTS (SELECT 1 FROM gf_app_user WHERE gf_app_user.id=gf_accounting_snapshot.user_id)</delete>
+    <select id="pageAfter" resultType="com.guardfind.server.accounting.AccountingSnapshot">SELECT user_id,version,payload,operation_id FROM gf_accounting_snapshot WHERE user_id &gt; #{userId} ORDER BY user_id LIMIT 100</select>
+    <select id="find" resultType="com.guardfind.server.accounting.AccountingSnapshot">
+        SELECT user_id, version, payload, operation_id FROM gf_accounting_snapshot WHERE user_id = #{userId}
+    </select>
+    <insert id="insertSnapshot">
+        INSERT INTO gf_accounting_snapshot (user_id, version, payload, operation_id)
+        VALUES (#{userId}, #{version}, #{payload}, #{operationId})
+    </insert>
+    <update id="replace">
+        UPDATE gf_accounting_snapshot SET version = #{snapshot.version}, payload = #{snapshot.payload},
+          operation_id = #{snapshot.operationId}, update_time = CURRENT_TIMESTAMP
+        WHERE user_id = #{snapshot.userId} AND version = #{baseVersion}
+    </update>
+</mapper>

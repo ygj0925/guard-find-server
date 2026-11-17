@@ -26,4 +26,9 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/9/24
  */
 public interface FindCaseMediaMapper extends BaseMapper<FindCaseMediaDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM gf_find_case_media WHERE case_id = #{caseId}")
+    java.util.List<FindCaseMediaDO> allForErasure(@org.apache.ibatis.annotations.Param("caseId") Long caseId);
+
+    @org.apache.ibatis.annotations.Update("UPDATE gf_find_case_media SET url = '', thumb_url = NULL, sha256 = NULL, deleted = id WHERE case_id = #{caseId}")
+    int eraseContent(@org.apache.ibatis.annotations.Param("caseId") Long caseId);
 }

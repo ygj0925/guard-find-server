@@ -113,7 +113,8 @@ public final class AppUserContextHolder {
      */
     public static boolean isVolunteer() {
         AppUserContext context = getContext();
-        return context != null && "VOLUNTEER".equals(context.getIdentityType());
+        return context != null && "VOLUNTEER".equals(context.getIdentityType())
+            && Boolean.TRUE.equals(context.getVolunteerVerified());
     }
 
     /**

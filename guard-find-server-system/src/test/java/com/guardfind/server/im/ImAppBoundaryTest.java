@@ -39,7 +39,7 @@ class ImAppBoundaryTest {
         c.setId(10L);
         c.setUserAId(2L);
         c.setUserBId(3L);
-        when(conversations.selectById(10L)).thenReturn(c);
+        when(conversations.selectOne(any())).thenReturn(c);
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired).thenReturn(1L);
             assertThrows(AppBizException.class, () -> service.markRead(10L));
@@ -56,7 +56,7 @@ class ImAppBoundaryTest {
         c.setId(10L);
         c.setUserAId(1L);
         c.setUserBId(2L);
-        when(conversations.selectById(10L)).thenReturn(c);
+        when(conversations.selectOne(any())).thenReturn(c);
         try (var context = mockStatic(AppUserContextHolder.class)) {
             context.when(AppUserContextHolder::getUserIdRequired).thenReturn(1L);
             service.delete(10L);

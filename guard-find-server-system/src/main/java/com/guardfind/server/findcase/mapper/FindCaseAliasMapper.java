@@ -26,4 +26,6 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/9/24
  */
 public interface FindCaseAliasMapper extends BaseMapper<FindCaseAliasDO> {
+    @org.apache.ibatis.annotations.Update("UPDATE gf_find_case_alias SET name = '', deleted = id WHERE case_id = #{caseId}")
+    int eraseContent(@org.apache.ibatis.annotations.Param("caseId") Long caseId);
 }

@@ -26,4 +26,6 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/9/24
  */
 public interface FindCaseMapper extends BaseMapper<FindCaseDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM gf_find_case WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    FindCaseDO lockById(@org.apache.ibatis.annotations.Param("id") Long id);
 }
