@@ -26,6 +26,7 @@ import com.guardfind.server.ledger.mapper.*;
 import com.guardfind.server.ledger.model.entity.*;
 import com.guardfind.server.ledger.model.req.*;
 import com.guardfind.server.ledger.service.impl.LedgerGroupServiceImpl;
+import com.guardfind.server.ledger.service.impl.LedgerServiceImpl;
 import com.guardfind.server.support.ContainerlessTestBase;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.*;
@@ -46,6 +47,8 @@ class LedgerGroupTransactionTest extends ContainerlessTestBase {
     private LedgerGroupMapper groups;
     private LedgerGroupMemberMapper members;
     private LedgerGroupServiceImpl service;
+    private LedgerServiceImpl ledger;
+    private LedgerRecordMapper records;
 
     @BeforeEach
     void setup() {
@@ -78,10 +81,16 @@ class LedgerGroupTransactionTest extends ContainerlessTestBase {
             var member = (LedgerGroupMemberDO)inv.getArgument(0);
             return jdbc.update("INSERT INTO members_test VALUES (?, ?)", member.getGroupId(), member.getUserId());
         });
-        var target = new LedgerGroupServiceImpl(groups, members, mock(LedgerRecordMapper.class), mock(AppUserMapper.class));
+        records = mock(LedgerRecordMapper.class);
+        var target = new LedgerGroupServiceImpl(groups, members, records, mock(AppUserMapper.class));
         var proxy = new ProxyFactory(target); proxy.setProxyTargetClass(true);
-        proxy.addAdvice(new TransactionInterceptor(new DataSourceTransactionManager(ds), new AnnotationTransactionAttributeSource()));
+        var transactions = new TransactionInterceptor(new DataSourceTransactionManager(ds), new AnnotationTransactionAttributeSource());
+        proxy.addAdvice(transactions);
         service = (LedgerGroupServiceImpl)proxy.getProxy();
+        var ledgerProxy = new ProxyFactory(new LedgerServiceImpl(records, service));
+        ledgerProxy.setProxyTargetClass(true);
+        ledgerProxy.addAdvice(transactions);
+        ledger = (LedgerServiceImpl)ledgerProxy.getProxy();
     }
 
     @AfterEach
@@ -126,6 +135,64 @@ class LedgerGroupTransactionTest extends ContainerlessTestBase {
                 return false;
             }
         } finally { AppUserContextHolder.clear(); }
+    }
+
+    @Test
+    void dissolveWaitsForNewRecordAndReturnsItToItsOwner() throws Exception {
+        jdbc.execute("CREATE TABLE records_test(id BIGINT PRIMARY KEY, group_id BIGINT, user_id BIGINT)");
+        jdbc.update("INSERT INTO groups_test VALUES (5, 'ABCDEF')");
+        jdbc.update("INSERT INTO members_test VALUES (5, 100), (5, 7)");
+        var beforeInsert = new CountDownLatch(1);
+        var allowInsert = new CountDownLatch(1);
+        var ownerAtLock = new CountDownLatch(1);
+        var group = new LedgerGroupDO();
+        group.setId(5L);
+        group.setOwnerUserId(100L);
+        when(groups.lockById(5L)).thenAnswer(inv -> {
+            if (AppUserContextHolder.getUserIdRequired() == 100L) ownerAtLock.countDown();
+            return jdbc.query("SELECT id FROM groups_test WHERE id = 5 FOR UPDATE", (rs, row) -> group)
+                .stream().findFirst().orElse(null);
+        });
+        when(groups.selectById(5L)).thenAnswer(inv -> jdbc.query("SELECT id FROM groups_test WHERE id = 5",
+            (rs, row) -> group).stream().findFirst().orElse(null));
+        when(records.insert(any(LedgerRecordDO.class))).thenAnswer(inv -> {
+            beforeInsert.countDown();
+            assertThat(allowInsert.await(5, TimeUnit.SECONDS)).isTrue();
+            LedgerRecordDO row = inv.getArgument(0);
+            row.setId(9L);
+            return jdbc.update("INSERT INTO records_test VALUES (9, ?, ?)", row.getGroupId(), row.getUserId());
+        });
+        when(records.update(isNull(), any())).thenAnswer(inv -> jdbc.update("UPDATE records_test SET group_id = NULL WHERE group_id = 5"));
+        when(members.delete(any())).thenAnswer(inv -> jdbc.update("DELETE FROM members_test WHERE group_id = 5"));
+        when(groups.deleteById(5L)).thenAnswer(inv -> jdbc.update("DELETE FROM groups_test WHERE id = 5"));
+
+        var executor = Executors.newFixedThreadPool(2);
+        try {
+            var create = executor.submit(() -> {
+                user(7L);
+                try {
+                    var req = new LedgerRecordReq();
+                    req.setGroupId(5L);
+                    req.setType(1);
+                    req.setCategory("food");
+                    return ledger.create(req);
+                } finally { AppUserContextHolder.clear(); }
+            });
+            assertThat(beforeInsert.await(5, TimeUnit.SECONDS)).isTrue();
+            var dissolve = executor.submit(() -> {
+                user(100L);
+                try { service.dissolve(5L); } finally { AppUserContextHolder.clear(); }
+            });
+            assertThat(ownerAtLock.await(5, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> dissolve.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+            allowInsert.countDown();
+            assertThat(create.get(5, TimeUnit.SECONDS)).isEqualTo(9L);
+            dissolve.get(5, TimeUnit.SECONDS);
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM records_test WHERE user_id = 7 AND group_id IS NULL", Long.class)).isEqualTo(1L);
+        } finally {
+            allowInsert.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @SuppressWarnings("unchecked")

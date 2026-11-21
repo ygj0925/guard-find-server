@@ -34,6 +34,8 @@ import com.guardfind.server.ledger.support.LedgerSummaryCalculator;
 import com.guardfind.server.ledger.support.PeriodParser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import top.continew.starter.core.exception.BusinessException;
 import top.continew.starter.extension.crud.model.query.PageQuery;
 import cn.hutool.core.util.StrUtil;
@@ -41,6 +43,8 @@ import cn.hutool.core.util.StrUtil;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * 记账业务实现
@@ -61,11 +65,12 @@ public class LedgerServiceImpl implements LedgerService {
     private final com.guardfind.server.ledger.service.LedgerGroupService ledgerGroupService;
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Long create(LedgerRecordReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
         LedgerTypeEnum type = LedgerTypeEnum.of(req.getType());
         validateCategory(type, req.getCategory());
-        if (req.getGroupId() != null) ledgerGroupService.requireMembership(req.getGroupId());
+        if (req.getGroupId() != null) ledgerGroupService.lockMembershipForWrite(req.getGroupId());
         LedgerRecordDO record = new LedgerRecordDO();
         record.setUserId(userId);
         record.setGroupId(req.getGroupId());
@@ -79,11 +84,10 @@ public class LedgerServiceImpl implements LedgerService {
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void update(Long id, LedgerRecordReq req) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        LedgerRecordDO record = getOwnedRecord(id, userId);
-        if (record.getGroupId() != null) ledgerGroupService.requireMembership(record.getGroupId());
-        if (req.getGroupId() != null) ledgerGroupService.requireMembership(req.getGroupId());
+        LedgerRecordDO record = lockOwnedRecord(id, userId, req.getGroupId());
         LedgerTypeEnum type = LedgerTypeEnum.of(req.getType());
         validateCategory(type, req.getCategory());
         record.setType(req.getType());
@@ -96,10 +100,10 @@ public class LedgerServiceImpl implements LedgerService {
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public void delete(Long id) {
         Long userId = AppUserContextHolder.getUserIdRequired();
-        LedgerRecordDO record = getOwnedRecord(id, userId);
-        if (record.getGroupId() != null) ledgerGroupService.requireMembership(record.getGroupId());
+        LedgerRecordDO record = lockOwnedRecord(id, userId, null);
         ledgerRecordMapper.deleteById(record);
     }
 
@@ -141,16 +145,28 @@ public class LedgerServiceImpl implements LedgerService {
         return LedgerSummaryCalculator.calculate(records, range);
     }
 
-    private LedgerRecordDO getOwnedRecord(Long id, Long userId) {
+    private LedgerRecordDO lockOwnedRecord(Long id, Long userId, Long destinationGroupId) {
         if (id == null) {
             throw new BusinessException("记录 ID 不能为空");
         }
-        LedgerRecordDO record = ledgerRecordMapper.selectById(id);
+        LedgerRecordDO original = ledgerRecordMapper.selectById(id);
+        requireOwner(original, userId);
+        // 与解散保持组行先于流水行的顺序；跨组移动总是先锁较小的组 ID。
+        Stream.of(original.getGroupId(), destinationGroupId).filter(Objects::nonNull).distinct().sorted()
+            .forEach(ledgerGroupService::lockMembershipForWrite);
+        LedgerRecordDO record = ledgerRecordMapper.lockById(id);
+        requireOwner(record, userId);
+        if (!Objects.equals(original.getGroupId(), record.getGroupId())) {
+            throw new AppBizException(AppBizException.STATE_CONFLICT, "流水所属账本已变更，请刷新后重试");
+        }
+        return record;
+    }
+
+    private void requireOwner(LedgerRecordDO record, Long userId) {
         if (record == null || !record.getUserId().equals(userId)) {
             // 越权与不存在同一话术，避免探测他人记录
             throw new AppBizException(AppBizException.NOT_FOUND, "记账记录不存在");
         }
-        return record;
     }
 
     private void validateCategory(LedgerTypeEnum type, String category) {

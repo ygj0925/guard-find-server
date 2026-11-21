@@ -222,6 +222,12 @@ public class LedgerGroupServiceImpl implements LedgerGroupService {
     }
 
     @Override
+    public void lockMembershipForWrite(Long groupId) {
+        groupMapper.lockById(groupId);
+        requireMembership(groupId);
+    }
+
+    @Override
     public void requireUserInGroup(Long groupId, Long userId) {
         requireMembership(groupId, userId);
     }

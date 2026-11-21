@@ -50,6 +50,7 @@ public class LedgerRecordDO extends BaseDO {
     /**
      * 所属家庭组(空=个人账本)
      */
+    @com.baomidou.mybatisplus.annotation.TableField(updateStrategy = com.baomidou.mybatisplus.annotation.FieldStrategy.ALWAYS)
     private Long groupId;
 
     /**

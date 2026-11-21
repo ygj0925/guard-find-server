@@ -79,6 +79,9 @@ public interface LedgerGroupService {
      */
     LedgerGroupDO requireMembership(Long groupId);
 
+    /** 锁定家庭组并校验成员，调用方的流水写事务持锁至提交。 */
+    void lockMembershipForWrite(Long groupId);
+
     /**
      * 校验指定用户是组成员(任务分派给他人前的负责人合法性检查);非成员抛 NOT_FOUND
      */

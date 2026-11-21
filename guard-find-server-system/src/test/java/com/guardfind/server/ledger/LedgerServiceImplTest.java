@@ -137,6 +137,7 @@ class LedgerServiceImplTest extends ContainerlessTestBase {
             own.setId(5L);
             own.setUserId(7L);
             when(mapper.selectById(5L)).thenReturn(own);
+            when(mapper.lockById(5L)).thenReturn(own);
             service.delete(5L);
             verify(mapper).deleteById(own);
         }
@@ -149,7 +150,7 @@ class LedgerServiceImplTest extends ContainerlessTestBase {
             var request = req(1, "10.00", "food");
             request.setGroupId(99L);
             service.create(request);
-            verify(groupService).requireMembership(99L);
+            verify(groupService).lockMembershipForWrite(99L);
             var capture = ArgumentCaptor.forClass(LedgerRecordDO.class);
             verify(mapper).insert(capture.capture());
             assertEquals(99L, capture.getValue().getGroupId());
@@ -161,9 +162,30 @@ class LedgerServiceImplTest extends ContainerlessTestBase {
         try (var ignored = mockStatic(AppUserContextHolder.class)) {
             when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
             var request = req(1, "10.00", "food"); request.setGroupId(99L);
-            when(groupService.requireMembership(99L)).thenThrow(new AppBizException(AppBizException.NOT_FOUND, "不可访问"));
+            org.mockito.Mockito.doThrow(new AppBizException(AppBizException.NOT_FOUND, "不可访问"))
+                .when(groupService).lockMembershipForWrite(99L);
             assertThrows(AppBizException.class, () -> service.create(request));
             verify(mapper, never()).insert(any(LedgerRecordDO.class));
+        }
+    }
+
+    @Test
+    void movingBetweenGroupsLocksBothGroupsInOrderBeforeTheRecord() {
+        try (var ignored = mockStatic(AppUserContextHolder.class)) {
+            when(AppUserContextHolder.getUserIdRequired()).thenReturn(7L);
+            var own = new LedgerRecordDO();
+            own.setUserId(7L);
+            own.setGroupId(90L);
+            when(mapper.selectById(5L)).thenReturn(own);
+            when(mapper.lockById(5L)).thenReturn(own);
+            var request = req(1, "10.00", "food");
+            request.setGroupId(18L);
+            service.update(5L, request);
+            var order = org.mockito.Mockito.inOrder(groupService, mapper);
+            order.verify(groupService).lockMembershipForWrite(18L);
+            order.verify(groupService).lockMembershipForWrite(90L);
+            order.verify(mapper).lockById(5L);
+            order.verify(mapper).updateById(own);
         }
     }
 }

@@ -26,4 +26,6 @@ import top.continew.starter.data.mapper.BaseMapper;
  * @since 2026/10/28
  */
 public interface LedgerRecordMapper extends BaseMapper<LedgerRecordDO> {
+    @org.apache.ibatis.annotations.Select("SELECT * FROM gf_ledger_record WHERE id = #{id} AND deleted = 0 FOR UPDATE")
+    LedgerRecordDO lockById(@org.apache.ibatis.annotations.Param("id") Long id);
 }
